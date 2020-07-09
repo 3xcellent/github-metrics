@@ -104,7 +104,7 @@ func newConfigFromEnv() (*Configuration, error) {
 			return nil, errors.Wrap(err, "Error loading .env file")
 		}
 	}
-	logrus.Debugf(".env file loaded: %b", loadedEnvFile)
+	logrus.Debugf(".env file loaded: %v", loadedEnvFile)
 
 	viper.SetEnvPrefix("gh_metrics")
 	viper.BindEnv("api.token")
