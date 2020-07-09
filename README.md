@@ -1,34 +1,11 @@
 # github-metrics
 a cli client for generating metrics reports from github project boards and issues.
 
+Run without arguments for help
+```bash
+    github-metrics
 ```
-Github Metrics gathers data from a github server and generates csv reports
 
-Usage:
-  github-metrics [command]
-
-Available Commands:
-  columns       output number of issues in each column for a github board to csv
-  help          Help about any command
-  issues        gathers metrics from issues on a board and outputs as csv
-  project       shows information about a specific project
-  pull_requests output number of issues in each column for a github board to csv
-  repos         shows list of repos for a specific project
-
-Flags:
-  -d, --askForDate       command will ask for user to input year and month parameters at runtime
-  -c, --create-file      set outpath path to [board_name]_[command_name]_[year]_[month].csv)
-  -h, --help             help for github-metrics
-  -m, --month int        specify month (default 6)
-      --no-headers       disable csv header row
-  -o, --outpath string   set output path
-  -t, --token string     Auth token used when connecting to github server
-  -v, --verbose          verbose output
-  -y, --year int         specify year (default 2020)
-
-Use "github-metrics [command] --help" for more information about a command.
-
-```
 #To Use
 1. create a `config.yaml` file in the folder you run the binary that looks like:
     ```yaml
