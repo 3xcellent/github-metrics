@@ -131,8 +131,6 @@ func (i *Issue) ProcessLabels(labels []*github.Label) {
 }
 
 func (i *Issue) ProcessIssueEvents(events []*github.IssueEvent, beginColumnIdx int) {
-	logrus.Debugf("\n\nbeginColumnIdx: %d\n\n", beginColumnIdx)
-
 	if len(events) == 0 {
 		return
 	}
@@ -151,7 +149,7 @@ func (i *Issue) ProcessIssueEvents(events []*github.IssueEvent, beginColumnIdx i
 			boardColumn, _, err := i.getColumn(event.GetProjectCard().GetColumnName())
 			if err != nil {
 				logrus.Debugf("Event: metric column not found: %s.   skip metric...\n", event.GetProjectCard().GetColumnName())
-				return
+				continue
 			}
 			logrus.Debugf("Event: setting column \"%s\" date - %s\n", boardColumn.Name, event.GetCreatedAt())
 			boardColumn.Date = event.GetCreatedAt()

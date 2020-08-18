@@ -17,15 +17,17 @@ var (
 		Long:  `Github Metrics gathers data from a github server and generates csv reports`,
 		Args:  cobra.MinimumNArgs(1),
 	}
-	Config     *config.Configuration
-	verbose    bool
-	askForDate bool
-	token      string
-	year       int
-	month      int
-	noHeaders  bool
-	outpath    string
-	newFile    bool
+	Config      *config.Configuration
+	verbose     bool
+	askForDate  bool
+	token       string
+	year        int
+	month       int
+	issueNumber int
+	noHeaders   bool
+	outpath     string
+	repoName    string
+	newFile     bool
 )
 
 func init() {
@@ -37,6 +39,8 @@ func init() {
 	GithubMetricsCmd.PersistentFlags().IntVarP(&month, "month", "m", int(time.Now().Month()), "specify month")
 	GithubMetricsCmd.PersistentFlags().BoolVarP(&noHeaders, "no-headers", "", false, "disable csv header row")
 	GithubMetricsCmd.PersistentFlags().StringVarP(&outpath, "outpath", "o", "", "set output path")
+	GithubMetricsCmd.PersistentFlags().StringVarP(&repoName, "repoName", "r", "", "repoName (use with repoName)")
+	GithubMetricsCmd.PersistentFlags().IntVarP(&issueNumber, "issueNumber", "i", 0, "issueNumber (use with issueNumber)")
 	GithubMetricsCmd.PersistentFlags().BoolVarP(&newFile, "create-file", "c", false, "set outpath path to [board_name]_[command_name]_[year]_[month].csv)")
 
 	viper.BindPFlag("verbose", GithubMetricsCmd.PersistentFlags().Lookup("verbose"))
@@ -47,6 +51,8 @@ func init() {
 	viper.BindPFlag("noHeaders", GithubMetricsCmd.PersistentFlags().Lookup("no-headers"))
 	viper.BindPFlag("outputPath", GithubMetricsCmd.PersistentFlags().Lookup("outpath"))
 	viper.BindPFlag("createFile", GithubMetricsCmd.PersistentFlags().Lookup("create-file"))
+	viper.BindPFlag("repoName", GithubMetricsCmd.PersistentFlags().Lookup("repoName"))
+	viper.BindPFlag("issueNumber", GithubMetricsCmd.PersistentFlags().Lookup("issueNumber"))
 
 	GithubMetricsCmd.AddCommand(projectCommand, issuesCmd, columnsCmd, pullRequestsCmd, reposCommand)
 }

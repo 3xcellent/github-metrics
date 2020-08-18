@@ -128,6 +128,11 @@ func (m *metricsClient) GetIssuesFromColumn(ctx context.Context, repoOwner strin
 					Page:    nextPage,
 				},
 			})
+			if resp != nil && resp.StatusCode == 404 {
+				logrus.Warnf("URL Not Found: %s", resp.Request.URL.String())
+				nextPage = 0
+				continue
+			}
 			if err != nil {
 				panic(err)
 			}
