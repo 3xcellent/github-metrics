@@ -147,14 +147,16 @@ Flags:
   -h, --help   help for issues
 
 Global Flags:
-  -d, --askForDate       command will ask for user to input year and month parameters at runtime
-  -c, --create-file      set outpath path to [board_name]_[command_name]_[year]_[month].csv)
-  -m, --month int        specify month (default %d)
-      --no-headers       disable csv header row
-  -o, --outpath string   set output path
-  -t, --token string     Auth token used when connecting to github server
-  -v, --verbose          verbose output
-  -y, --year int         specify year (default %d)
+  -d, --askForDate        command will ask for user to input year and month parameters at runtime
+  -c, --create-file       set outpath path to [board_name]_[command_name]_[year]_[month].csv)
+  -i, --issueNumber int   issueNumber (use with issueNumber)
+  -m, --month int         specify month (default %d)
+      --no-headers        disable csv header row
+  -o, --outpath string    set output path
+  -r, --repoName string   repoName (use with repoName)
+  -t, --token string      Auth token used when connecting to github server
+  -v, --verbose           verbose output
+  -y, --year int          specify year (default %d)
 
 `, time.Now().Month(), time.Now().Year())
 
