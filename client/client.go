@@ -85,6 +85,7 @@ func (m *metricsClient) GetProjectColumns(ctx context.Context, projectID int64) 
 
 	return projectColumns
 }
+
 func (m *metricsClient) GetPullRequests(ctx context.Context, repoOwner, repoName string) ([]*github.PullRequest, error) {
 	repoPullRequests := make([]*github.PullRequest, 0)
 	nextPage := 1
@@ -109,6 +110,7 @@ func (m *metricsClient) GetPullRequests(ctx context.Context, repoOwner, repoName
 	}
 	return repoPullRequests, nil
 }
+
 func (m *metricsClient) GetIssuesFromColumn(ctx context.Context, repoOwner string, columnID int64, beginDate, endDate time.Time) map[string][]*github.Issue {
 	issues := map[string][]*github.Issue{}
 
