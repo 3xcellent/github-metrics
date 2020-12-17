@@ -17,7 +17,6 @@ var (
 		Long:  `Github Metrics gathers data from a github server and generates csv reports`,
 		Args:  cobra.MinimumNArgs(1),
 	}
-	Config      *config.Configuration
 	verbose     bool
 	askForDate  bool
 	token       string
