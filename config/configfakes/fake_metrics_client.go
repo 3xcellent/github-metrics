@@ -257,7 +257,7 @@ func (fake *FakeMetricsClient) GetIssuesFromColumn(arg1 context.Context, arg2 st
 		arg4 time.Time
 		arg5 time.Time
 	}{arg1, arg2, arg3, arg4, arg5})
-	fake.recordInvocation("GetIssuesFromColumn", []interface{}{arg1, arg2, arg3, arg4, arg5})
+	fake.recordInvocation("GetIssues", []interface{}{arg1, arg2, arg3, arg4, arg5})
 	fake.getIssuesFromColumnMutex.Unlock()
 	if fake.GetIssuesFromColumnStub != nil {
 		return fake.GetIssuesFromColumnStub(arg1, arg2, arg3, arg4, arg5)
@@ -501,14 +501,14 @@ func (fake *FakeMetricsClient) GetPullRequestsReturnsOnCall(i int, result1 []*gi
 	}{result1, result2}
 }
 
-func (fake *FakeMetricsClient) GetReposFromIssuesOnColumn(arg1 context.Context, arg2 int64) []string {
+func (fake *FakeMetricsClient) GetRepos(arg1 context.Context, arg2 int64) []string {
 	fake.getReposFromIssuesOnColumnMutex.Lock()
 	ret, specificReturn := fake.getReposFromIssuesOnColumnReturnsOnCall[len(fake.getReposFromIssuesOnColumnArgsForCall)]
 	fake.getReposFromIssuesOnColumnArgsForCall = append(fake.getReposFromIssuesOnColumnArgsForCall, struct {
 		arg1 context.Context
 		arg2 int64
 	}{arg1, arg2})
-	fake.recordInvocation("GetReposFromIssuesOnColumn", []interface{}{arg1, arg2})
+	fake.recordInvocation("GetRepos", []interface{}{arg1, arg2})
 	fake.getReposFromIssuesOnColumnMutex.Unlock()
 	if fake.GetReposFromIssuesOnColumnStub != nil {
 		return fake.GetReposFromIssuesOnColumnStub(arg1, arg2)

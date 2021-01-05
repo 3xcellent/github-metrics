@@ -26,68 +26,66 @@ var issuesCmd = &cobra.Command{
 func issues(c *cobra.Command, args []string) error {
 	var err error
 	ctx := context.Background()
-	if Config == nil {
-		Config, err = config.NewDefaultConfig()
-		if err != nil {
-			return err
-		}
-		Config.GithubClient, err = client.New(ctx, Config.API)
-		if err != nil {
-			return err
-		}
+	cfg, err := config.NewDefaultConfig()
+	if err != nil {
+		return err
 	}
-
-	if Config.Boards == nil {
-		return errors.New("no project boards configured")
-	}
-	board, found := Config.Boards[args[0]]
-	if !found {
-		return errors.New("no project board found with that name")
-	}
-
-	project, err := Config.GithubClient.GetProject(ctx, board.BoardID)
+	cfg.GithubClient, err = client.New(ctx, cfg.API)
 	if err != nil {
 		return err
 	}
 
-	if Config.CreateFile {
-		Config.OutputPath = fmt.Sprintf("%s_%s_%d-%02d.csv",
+	if cfg.Boards == nil {
+		return errors.New("no project boards configured")
+	}
+	board, found := cfg.Boards[args[0]]
+	if !found {
+		return errors.New("no project board found with that name")
+	}
+
+	project, err := cfg.GithubClient.GetProject(ctx, board.BoardID)
+	if err != nil {
+		return err
+	}
+
+	if cfg.CreateFile {
+		cfg.OutputPath = fmt.Sprintf("%s_%s_%d-%02d.csv",
 			strings.Replace(project.GetName(), " ", "_", -1),
 			c.Name(),
-			Config.StartDate.Year(),
-			Config.StartDate.Month(),
+			cfg.StartDate.Year(),
+			cfg.StartDate.Month(),
 		)
 	}
 
 	boardColumns := make(metrics.BoardColumns, 0)
-	for i, col := range Config.GithubClient.GetProjectColumns(ctx, board.BoardID) {
+	for i, col := range cfg.GithubClient.GetProjectColumns(ctx, board.BoardID) {
 		colName := col.GetName()
 		if colName == board.StartColumn {
 			logrus.Debugf("StartColumnIndex: %d", i)
-			Config.StartColumnIndex = i
+			cfg.StartColumnIndex = i
 		}
 
 		if colName == board.EndColumn {
 			logrus.Debugf("EndColumnIndex: %d", i)
-			Config.EndColumnIndex = i
+			cfg.EndColumnIndex = i
 		}
 		boardColumns = append(boardColumns, &metrics.BoardColumn{Name: colName, ID: col.GetID()})
 	}
 
-	if Config.EndColumnIndex == 0 {
-		Config.EndColumn = boardColumns[0].Name
+	if cfg.EndColumnIndex == 0 {
+		cfg.EndColumn = boardColumns[0].Name
 	}
 
-	if Config.EndColumnIndex == 0 {
-		Config.EndColumnIndex = len(boardColumns) - 1
-		Config.EndColumn = boardColumns[Config.EndColumnIndex].Name
+	if cfg.EndColumnIndex == 0 {
+		cfg.EndColumnIndex = len(boardColumns) - 1
+		cfg.EndColumn = boardColumns[cfg.EndColumnIndex].Name
 	}
 
-	logrus.Debugf("columns for %s: %s", project.GetName(), strings.Join(boardColumns.ColumnNames()[Config.StartColumnIndex:Config.EndColumnIndex], ","))
+	logrus.Debugf("columns for %s: %s", project.GetName(), strings.Join(boardColumns.ColumnNames()[cfg.StartColumnIndex:cfg.EndColumnIndex], ","))
 
 	issues := metrics.Issues{}
-	if Config.IssueNumber != 0 && Config.RepoName != "" {
-		ghIssue, err := Config.GithubClient.GetIssue(ctx, Config.Owner, Config.RepoName, Config.IssueNumber)
+	if cfg.IssueNumber != 0 && cfg.RepoName != "" {
+		ghIssue, err := cfg.GithubClient.GetIssue(ctx, cfg.Owner, cfg.RepoName, cfg.IssueNumber)
 		if err != nil {
 			panic(err)
 		}
@@ -96,8 +94,8 @@ func issues(c *cobra.Command, args []string) error {
 		copy(newColumnDates, boardColumns)
 		issue := &metrics.Issue{
 			//Issue: ghIssue,
-			Owner:            Config.Owner,
-			RepoName:         Config.RepoName,
+			Owner:            cfg.Owner,
+			RepoName:         cfg.RepoName,
 			Number:           ghIssue.GetNumber(),
 			Type:             "",
 			Title:            "",
@@ -113,75 +111,74 @@ func issues(c *cobra.Command, args []string) error {
 			issue.ColumnDates[i] = &metrics.BoardColumn{Name: cd.Name}
 		}
 
-		events, err := Config.GithubClient.GetIssueEvents(ctx, Config.Owner, issue.RepoName, issue.Number)
+		events, err := cfg.GithubClient.GetIssueEvents(ctx, cfg.Owner, issue.RepoName, issue.Number)
 		if err != nil {
 			return err
 		}
 
-		issue.ProcessIssueEvents(events, Config.StartColumnIndex)
+		issue.ProcessIssueEvents(events, cfg.StartColumnIndex)
 
 		issues = metrics.Issues{issue}
 	} else {
-		for repo, repoIssues := range Config.GithubClient.GetIssuesFromColumn(ctx,
-			Config.Owner,
-			boardColumns[Config.EndColumnIndex].ID,
-			Config.StartDate,
-			Config.EndDate,
+		repos := cfg.GithubClient.GetRepos(ctx, boardColumns[cfg.EndColumnIndex].ID)
+		for _, repoIssue := range cfg.GithubClient.GetIssues(ctx,
+			cfg.Owner,
+			repos,
+			cfg.StartDate,
+			cfg.EndDate,
 		) {
-			for _, repoIssue := range repoIssues {
-				issue := &metrics.Issue{
-					//Issue: issue,
-					Owner:            Config.Owner,
-					RepoName:         repo,
-					Number:           repoIssue.GetNumber(),
-					Title:            repoIssue.GetTitle(),
-					IsFeature:        false,
-					TotalTimeBlocked: 0,
-					ProjectID:        0,
-					Type:             "Enhancement",
-				}
-
-				issue.ProcessLabels(repoIssue.Labels)
-
-				issue.ColumnDates = make(metrics.BoardColumns, len(boardColumns))
-				for i, cd := range boardColumns {
-					issue.ColumnDates[i] = &metrics.BoardColumn{Name: cd.Name}
-				}
-
-				events, err := Config.GithubClient.GetIssueEvents(ctx, Config.Owner, issue.RepoName, issue.Number)
-				if err != nil {
-					return err
-				}
-
-				issue.ProcessIssueEvents(events, Config.StartColumnIndex)
-
-				issues = append(issues, issue)
+			issue := &metrics.Issue{
+				//Issue: issue,
+				Owner:            cfg.Owner,
+				RepoName:         repoIssue.GetRepository().GetName(),
+				Number:           repoIssue.GetNumber(),
+				Title:            repoIssue.GetTitle(),
+				IsFeature:        false,
+				TotalTimeBlocked: 0,
+				ProjectID:        0,
+				Type:             "Enhancement",
 			}
 
+			issue.ProcessLabels(repoIssue.Labels)
+
+			issue.ColumnDates = make(metrics.BoardColumns, len(boardColumns))
+			for i, cd := range boardColumns {
+				issue.ColumnDates[i] = &metrics.BoardColumn{Name: cd.Name}
+			}
+
+			events, err := cfg.GithubClient.GetIssueEvents(ctx, cfg.Owner, issue.RepoName, issue.Number)
+			if err != nil {
+				return err
+			}
+
+			issue.ProcessIssueEvents(events, cfg.StartColumnIndex)
+
+			issues = append(issues, issue)
 		}
+
 	}
 
 	var writer *csv.Writer
-	if Config.OutputPath == "" {
+	if cfg.OutputPath == "" {
 		writer = csv.NewWriter(c.OutOrStdout())
 	} else {
-		writer = csv.NewWriter(Config.OutPath())
+		writer = csv.NewWriter(cfg.OutPath())
 	}
 	defer writer.Flush()
 
-	for _, rowColumns := range issues.CSVRowColumns(Config.StartColumnIndex, Config.EndColumnIndex, board.BoardID, !Config.NoHeaders, Config.StartDate, Config.EndDate) {
+	for _, rowColumns := range issues.CSVRowColumns(cfg.StartColumnIndex, cfg.EndColumnIndex, board.BoardID, !cfg.NoHeaders, cfg.StartDate, cfg.EndDate) {
 		if err := writer.Write(rowColumns); err != nil {
 			return err
 		}
 	}
 
 	c.Println()
-	if Config.OutputPath != "" {
+	if cfg.OutputPath != "" {
 		wd, err := os.Getwd()
 		if err != nil {
 			return err
 		}
-		c.Printf("Wrote to: file://%s/%s\n", wd, Config.OutputPath)
+		c.Printf("Wrote to: file://%s/%s\n", wd, cfg.OutputPath)
 	}
 	return nil
 }

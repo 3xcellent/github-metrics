@@ -12,7 +12,7 @@ func TestNew(t *testing.T) {
 	tests := []struct {
 		name       string
 		config     config.APIConfig
-		want       *metricsClient
+		want       *MetricsClient
 		wantErr    bool
 		wantErrMsg string
 	}{

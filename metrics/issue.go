@@ -22,10 +22,11 @@ type Issue struct {
 	Type             string
 	Title            string
 	ColumnDates      []*BoardColumn
-	DateColumnMap    Columns
+	DateColumnMap    ColsMap
 	IsFeature        bool
 	TotalTimeBlocked time.Duration
 	ProjectID        int64
+	Events           []*github.IssueEvent
 }
 
 type IssueLabel string
@@ -130,6 +131,30 @@ func (i *Issue) ProcessLabels(labels []*github.Label) {
 	}
 }
 
+func Type(labels []*github.Label) string {
+	for _, l := range labels {
+		labelName := ToIssueLabel(l.GetName())
+		switch labelName {
+		case Bug:
+			return "Bug"
+		case TechDebt:
+			return "Tech Debt"
+		}
+	}
+	return ""
+}
+
+func HasFeatureLabel(labels []*github.Label) bool {
+	for _, l := range labels {
+		labelName := ToIssueLabel(l.GetName())
+		switch labelName {
+		case Feature:
+			return true
+		}
+	}
+	return false
+}
+
 func (i *Issue) ProcessIssueEvents(events []*github.IssueEvent, beginColumnIdx int) {
 	if len(events) == 0 {
 		return
@@ -199,8 +224,8 @@ func (i *Issue) ProcessIssueEvents(events []*github.IssueEvent, beginColumnIdx i
 	// TODO: handle weekends?
 	// https://stackoverflow.com/questions/31327124/how-can-i-exclude-weekends-golang
 
-	// this section attempts to fix missing dates in columns
-	// by iterating backwards through the columns and
+	// this section attempts to fix missing dates in ColumnsMetric
+	// by iterating backwards through the ColumnsMetric and
 	// adjusting missing dates to previous column if not set
 	defaultTime := time.Time{}
 	for dateIdx := len(i.ColumnDates) - 1; dateIdx >= 0; dateIdx-- {

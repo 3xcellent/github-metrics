@@ -17,11 +17,11 @@ import (
 const StateArchived = "archived"
 const StateAll = "all"
 
-type metricsClient struct {
+type MetricsClient struct {
 	c *github.Client
 }
 
-func New(ctx context.Context, config config.APIConfig) (*metricsClient, error) {
+func New(ctx context.Context, config config.APIConfig) (*MetricsClient, error) {
 	baseURL := config.BaseURL
 	if baseURL == "" {
 		return nil, errors.New("github baseURL must be set")
@@ -45,12 +45,12 @@ func New(ctx context.Context, config config.APIConfig) (*metricsClient, error) {
 		return nil, err
 	}
 
-	return &metricsClient{
+	return &MetricsClient{
 		c: client,
 	}, nil
 }
 
-func (m *metricsClient) GetIssue(ctx context.Context, repoOwner, repoName string, issueNumber int) (*github.Issue, error) {
+func (m *MetricsClient) GetIssue(ctx context.Context, repoOwner, repoName string, issueNumber int) (*github.Issue, error) {
 	issue, _, err := m.c.Issues.Get(ctx, repoOwner, repoName, issueNumber)
 	if err != nil {
 		return nil, err
@@ -58,12 +58,12 @@ func (m *metricsClient) GetIssue(ctx context.Context, repoOwner, repoName string
 	return issue, nil
 }
 
-func (m *metricsClient) GetProject(ctx context.Context, boardID int64) (*github.Project, error) {
+func (m *MetricsClient) GetProject(ctx context.Context, boardID int64) (*github.Project, error) {
 	project, _, err := m.c.Projects.GetProject(ctx, boardID)
 	return project, err
 }
 
-func (m *metricsClient) GetProjectColumns(ctx context.Context, projectID int64) []*github.ProjectColumn {
+func (m *MetricsClient) GetProjectColumns(ctx context.Context, projectID int64) []*github.ProjectColumn {
 	projectColumns := make([]*github.ProjectColumn, 0)
 	nextPage := 1
 	for nextPage != 0 {
@@ -86,7 +86,7 @@ func (m *metricsClient) GetProjectColumns(ctx context.Context, projectID int64) 
 	return projectColumns
 }
 
-func (m *metricsClient) GetPullRequests(ctx context.Context, repoOwner, repoName string) ([]*github.PullRequest, error) {
+func (m *MetricsClient) GetPullRequests(ctx context.Context, repoOwner, repoName string) ([]*github.PullRequest, error) {
 	repoPullRequests := make([]*github.PullRequest, 0)
 	nextPage := 1
 	for nextPage != 0 {
@@ -111,10 +111,11 @@ func (m *metricsClient) GetPullRequests(ctx context.Context, repoOwner, repoName
 	return repoPullRequests, nil
 }
 
-func (m *metricsClient) GetIssuesFromColumn(ctx context.Context, repoOwner string, columnID int64, beginDate, endDate time.Time) map[string][]*github.Issue {
-	issues := map[string][]*github.Issue{}
+func (m *MetricsClient) GetIssues(ctx context.Context, repoOwner string, repos []string, beginDate, endDate time.Time) []*github.Issue {
+	issues := make([]*github.Issue, 0)
 
-	for _, repo := range m.GetReposFromIssuesOnColumn(ctx, columnID) {
+	for _, repo := range repos {
+		logrus.Infof("getting issues for repo: %s", repo)
 		nextPage := 1
 		for nextPage != 0 {
 			issuesForPage, resp, err := m.c.Issues.ListByRepo(ctx, repoOwner, repo, &github.IssueListByRepoOptions{
@@ -140,20 +141,22 @@ func (m *metricsClient) GetIssuesFromColumn(ctx context.Context, repoOwner strin
 			}
 
 			for _, issue := range issuesForPage {
+				repoName := repo
+				issue.Repository = &github.Repository{Name: &(repoName)} // patch repo name on returned object to have later since they don't populate
 				if issue.GetCreatedAt().After(endDate) {
 					continue
 				}
-				issues[repo] = append(issues[repo], issue)
+				logrus.Warnf("\tadding issue: %s/%d - %s", issue.GetRepository().GetName(), issue.GetNumber(), issue.GetTitle())
+				issues = append(issues, issue)
 			}
 
 			nextPage = resp.NextPage
 		}
-		logrus.Infof("issues for %s: %d", repo, len(issues[repo]))
 	}
 	return issues
 }
 
-func (m *metricsClient) GetIssueEvents(ctx context.Context, repoOwner, repoName string, issueNumber int) ([]*github.IssueEvent, error) {
+func (m *MetricsClient) GetIssueEvents(ctx context.Context, repoOwner, repoName string, issueNumber int) ([]*github.IssueEvent, error) {
 	issueEvents := make([]*github.IssueEvent, 0)
 	nextPage := 1
 	for nextPage != 0 {
@@ -175,14 +178,15 @@ func (m *metricsClient) GetIssueEvents(ctx context.Context, repoOwner, repoName 
 	return issueEvents, nil
 }
 
-func (m *metricsClient) GetReposFromIssuesOnColumn(ctx context.Context, columnId int64) []string {
+// GetRepos - returns slice of repo names gathered from the issues found in the columnID provided.
+func (m *MetricsClient) GetRepos(ctx context.Context, columnId int64) []string {
 	repos := make([]string, 0)
 	repoMap := map[string]struct{}{}
 	state := StateAll
 	nextPage := 1
 	for nextPage != 0 {
 		cards, resp, err := m.c.Projects.ListProjectCards(ctx, columnId, &github.ProjectCardListOptions{
-			ArchivedState: &state, // needs to be pointer, yuck
+			ArchivedState: &state,
 			ListOptions: github.ListOptions{
 				PerPage: 100,
 				Page:    nextPage,

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -21,21 +22,19 @@ type MetricsClient interface {
 	GetProject(ctx context.Context, boardID int64) (*github.Project, error)
 	GetProjectColumns(ctx context.Context, projectID int64) []*github.ProjectColumn
 	GetPullRequests(ctx context.Context, repoOwner, repoName string) ([]*github.PullRequest, error)
-	GetIssuesFromColumn(ctx context.Context, repoOwner string, columnID int64, beginDate, endDate time.Time) map[string][]*github.Issue
+	GetIssues(ctx context.Context, repoOwner string, reposNames []string, beginDate, endDate time.Time) []*github.Issue
 	GetIssueEvents(ctx context.Context, repoOwner, repoName string, issueNumber int) ([]*github.IssueEvent, error)
-	GetReposFromIssuesOnColumn(ctx context.Context, columnId int64) []string
+	GetRepos(ctx context.Context, columnId int64) []string
 }
 
-type Configuration struct {
+type Config struct {
 	GithubClient     MetricsClient
 	API              APIConfig
-	Boards           map[string]Board
+	Boards           map[string]BoardConfig
 	NoHeaders        bool
 	OutputPath       string
 	CreateFile       bool
 	StartColumnIndex int
-	StartColumn      string
-	EndColumn        string
 	EndColumnIndex   int
 	IssueNumber      int
 	RepoName         string
@@ -54,14 +53,17 @@ type APIConfig struct {
 	UploadURL string
 }
 
-type Board struct {
+type BoardConfig struct {
+	Name        string
 	StartColumn string
+	StartDate   time.Time
 	EndColumn   string
+	EndDate     time.Time
 	Owner       string
 	BoardID     int64
 }
 
-func (c *Configuration) CreatedByGroup(name string) string {
+func (c *Config) CreatedByGroup(name string) string {
 	for _, loginName := range c.LoginNames {
 		if name == loginName {
 			return c.GroupName
@@ -70,7 +72,7 @@ func (c *Configuration) CreatedByGroup(name string) string {
 	return ""
 }
 
-func (c *Configuration) OutPath() *os.File {
+func (c *Config) OutPath() *os.File {
 	if c.OutputPath == "" {
 		return os.Stdout
 	}
@@ -83,19 +85,46 @@ func (c *Configuration) OutPath() *os.File {
 	return output
 }
 
-func (c *Configuration) GetBoard(name string) (Board, error) {
+func (c *Config) GetBoardConfig(name string) (BoardConfig, error) {
 	if len(c.Boards) == 0 {
-		return Board{}, errors.New("no project boards configured")
+		return BoardConfig{}, errors.New("no project boards configured")
 	}
 
+	logrus.Infof("Config.Owner: %s", c.Owner)
 	board, found := c.Boards[name]
 	if !found {
-		return Board{}, errors.New("no project board found with that name")
+		return BoardConfig{}, errors.New("no project board found with that name")
 	}
+
+	board.Name = name
+	board.StartDate = c.StartDate
+	board.EndDate = c.StartDate.AddDate(0, 1, 0)
+	if board.Owner == "" {
+		board.Owner = c.Owner
+	}
+
+	now := time.Now()
+	if board.EndDate.After(now) {
+		board.EndDate = time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, c.Timezone)
+	}
+
 	return board, nil
 }
 
-func newConfigFromEnv() (*Configuration, error) {
+func (c *Config) GetSortedBoards() []BoardConfig {
+	sortedBoardNames := make([]string, 0, len(c.Boards))
+	for k, _ := range c.Boards {
+		sortedBoardNames = append(sortedBoardNames, k)
+	}
+	sort.Strings(sortedBoardNames)
+	boards := make([]BoardConfig, 0, len(c.Boards))
+	for _, k := range sortedBoardNames {
+		boards = append(boards, c.Boards[k])
+	}
+	return boards
+}
+
+func newConfigFromEnv() (*Config, error) {
 	loadedEnvFile := true
 	err := godotenv.Load()
 	if err != nil {
@@ -126,7 +155,7 @@ func newConfigFromEnv() (*Configuration, error) {
 			return nil, errors.Wrap(err, "error loading config file")
 		}
 	}
-	var cfg Configuration
+	var cfg Config
 	err = viper.Unmarshal(&cfg)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to decode default into struct")
@@ -134,8 +163,8 @@ func newConfigFromEnv() (*Configuration, error) {
 	return &cfg, nil
 }
 
-func NewStaticConfig(config []byte) (*Configuration, error) {
-	var cfg Configuration
+func NewStaticConfig(config []byte) (*Config, error) {
+	var cfg Config
 
 	viper.SetConfigType("yaml")
 	err := viper.ReadConfig(bytes.NewBuffer(config))
@@ -151,7 +180,7 @@ func NewStaticConfig(config []byte) (*Configuration, error) {
 	return &cfg, err
 }
 
-func NewDefaultConfig() (*Configuration, error) {
+func NewDefaultConfig() (*Config, error) {
 	cfg, err := newConfigFromEnv()
 	if err != nil {
 		return nil, errors.Wrap(err, "error initializing default config")
@@ -160,7 +189,7 @@ func NewDefaultConfig() (*Configuration, error) {
 	return cfg, err
 }
 
-func (c *Configuration) Init() error {
+func (c *Config) Init() error {
 	if c.Verbose {
 		logrus.SetLevel(logrus.DebugLevel)
 	} else {
@@ -207,11 +236,26 @@ func (c *Configuration) Init() error {
 	}
 
 	logrus.Debugf("Retrieving cards in range: %s - %s", c.StartDate.String(), c.EndDate.String())
-	logrus.Debugf("Github Metrics Configuration:\n%#v\n", c)
+	logrus.Debugf("Github Metrics Config:\n%#v\n", c)
 
 	return nil
 }
 
-func (c *Configuration) SetMetricsClient(metricsClient MetricsClient) {
+func (c *Config) SetMetricsClient(metricsClient MetricsClient) {
 	c.GithubClient = metricsClient
+}
+
+func (c *Config) SetIndexes(projectColumns []*github.ProjectColumn, startColumn, endColumn string) {
+	for i, col := range projectColumns {
+		colName := col.GetName()
+		if colName == startColumn {
+			logrus.Debugf("StartColumnIndex: %d", i)
+			c.StartColumnIndex = i
+		}
+
+		if colName == endColumn {
+			logrus.Debugf("EndColumnIndex: %d", i)
+			c.EndColumnIndex = i
+		}
+	}
 }

@@ -62,7 +62,7 @@ func pullRequests(c *cobra.Command, args []string) error {
 
 			boardColumns = append(boardColumns, &metrics.BoardColumn{Name: colName, ID: col.GetID()})
 		}
-		repoList = ghClient.GetReposFromIssuesOnColumn(c.Context(), boardColumns[Config.EndColumnIndex].ID)
+		repoList = ghClient.GetRepos(c.Context(), boardColumns[Config.EndColumnIndex].ID)
 	}
 
 	for _, repo := range repoList {
