@@ -23,7 +23,6 @@ import (
 	"github.com/3xcellent/github-metrics/client"
 	"github.com/3xcellent/github-metrics/config"
 	"github.com/3xcellent/github-metrics/metrics"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/shiny/materialdesign/icons"
 )
 
@@ -155,7 +154,7 @@ var (
 
 	isRunningCommand = false
 	hasStarted       = false
-	loopCount        = 0
+	hasCompleted     = false
 
 	baseURLInput      materials.TextField
 	uploadURLInput    materials.TextField
@@ -170,6 +169,9 @@ var (
 	selectedMonth     int
 	selectedCommand   string
 	outputText        string
+	outputTextField   materials.TextField
+	resultText        string
+	resultTextField   materials.TextField
 	Config            *config.Config
 	appPages          = []Page{
 		{
@@ -272,16 +274,14 @@ func Loop(w *app.Window) error {
 					bar.Title = page.Name
 					bar.SetActions(page.Actions, page.Overflow)
 				}
-				loopCount = loopCount + 1
 				if isRunningCommand && !hasStarted {
 					hasStarted = true
-					logrus.Infof("Starting: %s - %d / %d\n", selectedCommand, selectedMonth, selectedYear)
+					addOutput(fmt.Sprintf("Starting: %s - %d / %d\n", selectedCommand, selectedMonth, selectedYear))
 					switch selectedCommand {
 					case "columns":
 						addOutput(fmt.Sprintf("columns: %s - %d / %d\n", selectedCommand, selectedMonth, selectedYear))
 						go func() {
 							ctx := context.Background()
-							logrus.Info("newing up ghClient")
 							ghClient, err := client.New(ctx, Config.API)
 							if err != nil {
 								panic(err)
@@ -293,13 +293,15 @@ func Loop(w *app.Window) error {
 							}
 
 							projectColumns := ghClient.GetProjectColumns(ctx, boardCfg.BoardID)
-							cols := metrics.NewColumnsMetric(boardCfg, projectColumns, logrus.Info)
+							cols := metrics.NewColumnsMetric(boardCfg, projectColumns, addOutput)
 							cols.GatherAndProcessIssues(ctx, ghClient)
 							rows := cols.RowValues()
 							for _, row := range rows {
-								//TODO populate table view
-								logrus.Infof("vals: %s", strings.Join(row, ","))
+								resultText = fmt.Sprintf("%s\n%s", resultText, strings.Join(row, ","))
 							}
+							hasCompleted = true
+							isRunningCommand = false
+							hasStarted = false
 						}()
 
 					}
@@ -346,25 +348,50 @@ func Loop(w *app.Window) error {
 }
 
 func layoutMainPage(gtx C) D {
+	if runButton.Clicked() {
+		isRunningCommand = true
+		addOutput(fmt.Sprintf("runButton.Clicked() - isRunningCommand:%t", isRunningCommand))
+		Config.StartDate = time.Date(selectedYear, time.Month(selectedMonth), 1, 0, 0, 0, 0, time.Now().Location())
+		op.InvalidateOp{}.Add(gtx.Ops)
+	}
+	if hasCompleted {
+		// TODO show correct command layout
+		switch selectedCommand {
+		default:
+			return layoutResults(gtx)
+		}
+	}
 	if isRunningCommand {
-		addOutput(fmt.Sprintf("\tlayoutMainPage - %t - %s", isRunningCommand, selectedCommand))
 		// TODO show correct command layout
 		switch selectedCommand {
 		default:
 			return layoutProgress(gtx)
 		}
 	}
+
 	return layoutMainRunOptions(gtx)
 }
 
 func layoutProgress(gtx C) D {
-	addOutput("\tlayoutProgress")
 	return layout.Flex{
 		Alignment: layout.Start,
 		Axis:      layout.Horizontal,
 	}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return inset.Layout(gtx, material.Body1(th, outputText).Layout)
+		layout.Rigid(func(gtx C) D {
+			outputTextField.SetText(outputText)
+			return outputTextField.Layout(gtx, th, "running")
+		}),
+	)
+}
+
+func layoutResults(gtx C) D {
+	return layout.Flex{
+		Alignment: layout.Start,
+		Axis:      layout.Horizontal,
+	}.Layout(gtx,
+		layout.Rigid(func(gtx C) D {
+			resultTextField.SetText(resultText)
+			return resultTextField.Layout(gtx, th, "CSV Output")
 		}),
 	)
 }
@@ -423,7 +450,7 @@ func layoutMainRunOptions(gtx C) D {
 					}.Layout(
 						gtx,
 						layout.Rigid(func(gtx C) D {
-							return material.Body2(th, "Month:").Layout(gtx)
+							return material.Body2(th, "Year:").Layout(gtx)
 						}),
 						layout.Rigid(func(gtx C) D {
 							return layout.Flex{
@@ -455,7 +482,7 @@ func layoutMainRunOptions(gtx C) D {
 					}.Layout(
 						gtx,
 						layout.Rigid(func(gtx C) D {
-							return material.Body2(th, "Year:").Layout(gtx)
+							return material.Body2(th, "Month:").Layout(gtx)
 						}),
 						layout.Rigid(func(gtx C) D {
 							return layout.Flex{
@@ -512,12 +539,7 @@ func layoutMainRunOptions(gtx C) D {
 			)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if runButton.Clicked() {
-				isRunningCommand = true
-				addOutput(fmt.Sprintf("runButton.Clicked() - isRunningCommand:%t", isRunningCommand))
-				Config.StartDate = time.Date(selectedYear, time.Month(selectedMonth), 1, 0, 0, 0, 0, time.Now().Location())
-				op.InvalidateOp{}.Add(gtx.Ops)
-			}
+
 			return layout.Flex{
 				Axis: layout.Vertical,
 			}.Layout(

@@ -18,6 +18,7 @@ gioui.org v0.0.0-20201211192434-745bb949bb45/go.mod h1:Y+uS7hHMvku1Q+ooaoq6fYD5B
 gioui.org v0.0.0-20201219144351-00c4a53036ad h1:ajb72/J/e8VXgBEThY0+wtlOm6tsOhu7MnmnQEYyO/U=
 gioui.org v0.0.0-20201219144351-00c4a53036ad/go.mod h1:Y+uS7hHMvku1Q+ooaoq6fYD5B2LGoT8JtFgvmYmRzTw=
 gioui.org v0.0.0-20201220090421-18d4dbf60c4f h1:WEgnUK033XZ6MeIQ1dCGh9tG7s6isLv2aXSWP4TdbPA=
+gioui.org v0.0.0-20210103130323-7bfdafb7b15d h1:VkwllpRglnx7yZAgA3VgrtxO9x9wwBYHReaKygWV8go=
 gioui.org/example v0.0.0-20201220015606-a7bf96f68a74 h1:U3FjetbgR01pW6ASJ1VhkIoZ5gsxj2eT5yN+ZhYU0kc=
 gioui.org/example v0.0.0-20201220015606-a7bf96f68a74/go.mod h1:X1nMdMUojBDq4NQ7dgmLASGyupRaMx7i4em4VUQ4boE=
 git.sr.ht/~whereswaldon/colorpicker v0.0.0-20201207220634-905cd7cc7248/go.mod h1:6dPWP8F87bsIhQuwg0l5hH0TSDyk414e1xe3q+8BUho=
