@@ -23,6 +23,7 @@ import (
 	"github.com/3xcellent/github-metrics/client"
 	"github.com/3xcellent/github-metrics/config"
 	"github.com/3xcellent/github-metrics/metrics"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/shiny/materialdesign/icons"
 )
 
@@ -175,15 +176,16 @@ var (
 	Config            *config.Config
 	appPages          = []Page{
 		{
-			NavItem: materials.NavItem{Name: "Main", Icon: HomeIcon},
+			NavItem: materials.NavItem{Name: "Main", Icon: HomeIcon, Tag: 0},
 			layout:  layoutMainPage,
 		},
 		{
 			NavItem: materials.NavItem{
 				Name: "Github Connection Settings",
 				Icon: SettingsIcon,
+				Tag:  1,
 			},
-			layout: LayoutGithubConfigurationPage,
+			layout: LayoutConnectionSettings,
 		},
 	}
 )
@@ -196,6 +198,7 @@ func addOutput(args ...interface{}) {
 		}
 		outputText = fmt.Sprintf("%s\n%s", outputText, value)
 	}
+	outputTextField.SetText(outputText)
 }
 
 func init() {
@@ -247,6 +250,12 @@ func Loop(w *app.Window) error {
 				return e.Err
 			case system.FrameEvent:
 				gtx := layout.NewContext(&ops, e)
+				if nav.NavDestinationChanged() {
+					logrus.Info("changing page")
+					page := appPages[nav.CurrentNavDestination().(int)]
+					bar.Title = page.Name
+					bar.SetActions(page.Actions, page.Overflow)
+				}
 				for _, event := range bar.Events(gtx) {
 					switch event := event.(type) {
 					case materials.AppBarNavigationClicked:
@@ -269,11 +278,7 @@ func Loop(w *app.Window) error {
 					th.Palette = lightPalette
 					currentAccent = lightPaletteAccent
 				}
-				if nav.NavDestinationChanged() {
-					page := appPages[nav.CurrentNavDestination().(int)]
-					bar.Title = page.Name
-					bar.SetActions(page.Actions, page.Overflow)
-				}
+
 				if isRunningCommand && !hasStarted {
 					hasStarted = true
 					addOutput(fmt.Sprintf("Starting: %s - %d / %d\n", selectedCommand, selectedMonth, selectedYear))
@@ -302,8 +307,8 @@ func Loop(w *app.Window) error {
 							hasCompleted = true
 							isRunningCommand = false
 							hasStarted = false
+							resultTextField.SetText(resultText)
 						}()
-
 					}
 				}
 				paint.Fill(gtx.Ops, th.Palette.Bg)
@@ -378,7 +383,9 @@ func layoutProgress(gtx C) D {
 		Axis:      layout.Horizontal,
 	}.Layout(gtx,
 		layout.Rigid(func(gtx C) D {
-			outputTextField.SetText(outputText)
+			if !hasCompleted {
+				outputTextField.SetText(outputText)
+			}
 			return outputTextField.Layout(gtx, th, "running")
 		}),
 	)
@@ -390,7 +397,6 @@ func layoutResults(gtx C) D {
 		Axis:      layout.Horizontal,
 	}.Layout(gtx,
 		layout.Rigid(func(gtx C) D {
-			resultTextField.SetText(resultText)
 			return resultTextField.Layout(gtx, th, "CSV Output")
 		}),
 	)
@@ -827,35 +833,6 @@ If you like this library and work like it, please consider sponsoring Elias and/
 					})
 				}),
 			)
-		}),
-	)
-}
-
-func LayoutGithubConfigurationPage(gtx C) D {
-	return layout.Flex{
-		Axis: layout.Vertical,
-	}.Layout(
-		gtx,
-		layout.Rigid(func(gtx C) D {
-			baseURLInput.Alignment = inputAlignment
-			return baseURLInput.Layout(gtx, th, "Base URL")
-		}),
-		layout.Rigid(func(gtx C) D {
-			return inset.Layout(gtx, material.Body2(th, "Github Base URL (example: https://github.com)").Layout)
-		}),
-		layout.Rigid(func(gtx C) D {
-			uploadURLInput.Alignment = inputAlignment
-			return uploadURLInput.Layout(gtx, th, "Upload URL")
-		}),
-		layout.Rigid(func(gtx C) D {
-			return inset.Layout(gtx, material.Body2(th, "Github Upload URL (only needed if different from base URL)").Layout)
-		}),
-		layout.Rigid(func(gtx C) D {
-			tokenInput.Alignment = inputAlignment
-			return tokenInput.Layout(gtx, th, "Token")
-		}),
-		layout.Rigid(func(gtx C) D {
-			return inset.Layout(gtx, material.Body2(th, "Github Personal Access Token").Layout)
 		}),
 	)
 }
