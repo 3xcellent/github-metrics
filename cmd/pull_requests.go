@@ -44,25 +44,24 @@ func pullRequests(c *cobra.Command, args []string) error {
 		return err
 	}
 
-	// gather repo list
+	runCfg, err := Config.GetRunConfig(args[0])
+	if err != nil {
+		return err
+	}
+
+	projectColumns, err := ghClient.GetProjectColumns(c.Context(), runCfg.ProjectID)
+	if err != nil {
+		return err
+	}
+
 	var repoList []string
 	if len(repoNames) > 0 {
 		repoList = strings.Split(repoNames, ",")
 	} else {
-		if Config.Boards == nil {
-			return errors.New("no project boards configured")
+		repoList, err = ghClient.GetRepos(c.Context(), projectColumns[len(projectColumns)-1].ID)
+		if err != nil {
+			return err
 		}
-		board, found := Config.Boards[args[0]]
-		if !found {
-			return errors.New("no project board found with that name")
-		}
-		boardColumns := make(metrics.BoardColumns, 0)
-		for _, col := range ghClient.GetProjectColumns(c.Context(), board.BoardID) {
-			colName := col.GetName()
-
-			boardColumns = append(boardColumns, &metrics.BoardColumn{Name: colName, ID: col.GetID()})
-		}
-		repoList = ghClient.GetRepos(c.Context(), boardColumns[Config.EndColumnIndex].ID)
 	}
 
 	for _, repo := range repoList {
@@ -91,29 +90,21 @@ func pullRequests(c *cobra.Command, args []string) error {
 			return err
 		}
 		for _, pr := range prs {
-			if pr.GetClosedAt().IsZero() {
+			if pr.ClosedAt.IsZero() {
 				// pr is still open
 				continue
 			}
-			reviewerName := ""
-			if len(pr.RequestedReviewers) > 0 {
-				reviewers := make([]string, 0, len(pr.RequestedReviewers))
-				for _, reviewer := range pr.RequestedReviewers {
-					reviewers = append(reviewers, reviewer.GetLogin())
-				}
-				reviewerName = strings.Join(reviewers, "|")
-			}
 
-			_, repoName, issueNumber := client.ParseContentURL(pr.GetIssueURL())
+			_, repoName, issueNumber := client.ParseIssueURL(pr.IssueURL)
 			cols := []string{
 				repoName,
 				fmt.Sprintf("%d", issueNumber),
-				pr.GetCreatedAt().String(),
-				pr.GetUser().GetLogin(),
-				Config.CreatedByGroup(pr.GetUser().GetLogin()),
-				pr.GetClosedAt().String(),
-				reviewerName,
-				metrics.FmtDaysHours(pr.GetClosedAt().Sub(pr.GetCreatedAt())),
+				pr.CreatedAt.String(),
+				pr.CreatedByUser,
+				Config.CreatedByGroup(pr.CreatedByUser),
+				pr.ClosedAt.String(),
+				strings.Join(pr.RequestedReviewers, ","),
+				metrics.FmtDaysHours(pr.ClosedAt.Sub(pr.CreatedAt)),
 			}
 			err := writer.Write(cols)
 			if err != nil {

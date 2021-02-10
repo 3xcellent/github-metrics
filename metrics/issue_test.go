@@ -4,51 +4,52 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-github/v32/github"
+	"github.com/3xcellent/github-metrics/models"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestIssueMetric_ProcessIssueEvents(t *testing.T) {
 	beginColumnIndex := 0
+	ghIssue := models.Issue{}
+
 	t.Run("consecutive column progression", func(t *testing.T) {
 		date1 := time.Date(2001, 2, 3, 4, 5, 6, 7, time.Now().Location())
 		date2 := date1.Add(time.Hour * 24)
 		date3 := date1.Add(time.Hour * 24)
 		date4 := date1.Add(time.Hour * 24)
 
-		col1 := "col 1"
-		col2 := "col 2"
-		col3 := "col 3"
-		col4 := "col 4"
+		col1 := &models.ProjectColumn{Name: "col 1", ID: 1}
+		col2 := &models.ProjectColumn{Name: "col 2", ID: 1}
+		col3 := &models.ProjectColumn{Name: "col 3", ID: 1}
+		col4 := &models.ProjectColumn{Name: "col 4", ID: 1}
 
-		movedColumnsEvent := string(MovedColumns)
-
-		events := []*github.IssueEvent{
-			{Event: &movedColumnsEvent, CreatedAt: &date1, ProjectCard: &github.ProjectCard{ColumnName: &col1}},
-			{Event: &movedColumnsEvent, CreatedAt: &date2, ProjectCard: &github.ProjectCard{ColumnName: &col2}},
-			{Event: &movedColumnsEvent, CreatedAt: &date3, ProjectCard: &github.ProjectCard{ColumnName: &col3}},
-			{Event: &movedColumnsEvent, CreatedAt: &date4, ProjectCard: &github.ProjectCard{ColumnName: &col4}},
+		events := models.IssueEvents{
+			{Type: models.MovedColumns, CreatedAt: date1, ColumnName: col1.Name},
+			{Type: models.MovedColumns, CreatedAt: date2, ColumnName: col2.Name},
+			{Type: models.MovedColumns, CreatedAt: date3, ColumnName: col3.Name},
+			{Type: models.MovedColumns, CreatedAt: date4, ColumnName: col4.Name},
 		}
 
 		issue := Issue{
-			//beginColumnIdx: 0,
-			//endColumnIdx:   3,
-			ColumnDates: BoardColumns{
-				{Name: col1},
-				{Name: col2},
-				{Name: col3},
-				{Name: col4},
-			}}
-		issue.ProcessIssueEvents(events, beginColumnIndex)
+			Issue:            &ghIssue,
+			ProjectID:        42,
+			StartColumnIndex: beginColumnIndex,
+			EndColumnIndex:   3,
+			ColumnDates: IssuesDateColumns{
+				{ProjectColumn: col1},
+				{ProjectColumn: col2},
+				{ProjectColumn: col3},
+				{ProjectColumn: col4},
+			},
+		}
+		issue.ProcessIssueEvents(events)
 
 		expectedIssue := Issue{
-			//beginColumnIdx: 0,
-			//endColumnIdx:   3,
-			ColumnDates: BoardColumns{
-				{Name: col1, Date: date1},
-				{Name: col2, Date: date2},
-				{Name: col3, Date: date3},
-				{Name: col4, Date: date4},
+			ColumnDates: IssuesDateColumns{
+				{ProjectColumn: col1, Date: date1},
+				{ProjectColumn: col2, Date: date2},
+				{ProjectColumn: col3, Date: date3},
+				{ProjectColumn: col4, Date: date4},
 			}}
 
 		assert.Equal(t, expectedIssue.ColumnDates, issue.ColumnDates)
@@ -63,43 +64,42 @@ func TestIssueMetric_ProcessIssueEvents(t *testing.T) {
 		date7 := date1.Add(time.Hour * 24)
 		date8 := date1.Add(time.Hour * 24)
 
-		col1 := "col 1"
-		col2 := "col 2"
-		col3 := "col 3"
-		col4 := "col 4"
+		col1 := &models.ProjectColumn{Name: "col 1", ID: 1}
+		col2 := &models.ProjectColumn{Name: "col 2", ID: 1}
+		col3 := &models.ProjectColumn{Name: "col 3", ID: 1}
+		col4 := &models.ProjectColumn{Name: "col 4", ID: 1}
 
-		movedColumnsEvent := string(MovedColumns)
-
-		events := []*github.IssueEvent{
-			{Event: &movedColumnsEvent, CreatedAt: &date1, ProjectCard: &github.ProjectCard{ColumnName: &col1}},
-			{Event: &movedColumnsEvent, CreatedAt: &date2, ProjectCard: &github.ProjectCard{ColumnName: &col2}},
-			{Event: &movedColumnsEvent, CreatedAt: &date3, ProjectCard: &github.ProjectCard{ColumnName: &col3}},
-			{Event: &movedColumnsEvent, CreatedAt: &date4, ProjectCard: &github.ProjectCard{ColumnName: &col4}},
-			{Event: &movedColumnsEvent, CreatedAt: &date5, ProjectCard: &github.ProjectCard{ColumnName: &col1}},
-			{Event: &movedColumnsEvent, CreatedAt: &date6, ProjectCard: &github.ProjectCard{ColumnName: &col2}},
-			{Event: &movedColumnsEvent, CreatedAt: &date7, ProjectCard: &github.ProjectCard{ColumnName: &col3}},
-			{Event: &movedColumnsEvent, CreatedAt: &date8, ProjectCard: &github.ProjectCard{ColumnName: &col4}},
+		events := models.IssueEvents{
+			{Type: models.MovedColumns, CreatedAt: date1, ColumnName: col1.Name},
+			{Type: models.MovedColumns, CreatedAt: date2, ColumnName: col2.Name},
+			{Type: models.MovedColumns, CreatedAt: date3, ColumnName: col3.Name},
+			{Type: models.MovedColumns, CreatedAt: date4, ColumnName: col4.Name},
+			{Type: models.MovedColumns, CreatedAt: date5, ColumnName: col1.Name},
+			{Type: models.MovedColumns, CreatedAt: date6, ColumnName: col2.Name},
+			{Type: models.MovedColumns, CreatedAt: date7, ColumnName: col3.Name},
+			{Type: models.MovedColumns, CreatedAt: date8, ColumnName: col4.Name},
 		}
 
 		issue := Issue{
-			//beginColumnIdx: 0,
-			//endColumnIdx:   3,
-			ColumnDates: BoardColumns{
-				{Name: col1},
-				{Name: col2},
-				{Name: col3},
-				{Name: col4},
-			}}
-		issue.ProcessIssueEvents(events, beginColumnIndex)
+			Issue:            &ghIssue,
+			ProjectID:        42,
+			StartColumnIndex: beginColumnIndex,
+			EndColumnIndex:   3,
+			ColumnDates: IssuesDateColumns{
+				{ProjectColumn: col1},
+				{ProjectColumn: col2},
+				{ProjectColumn: col3},
+				{ProjectColumn: col4},
+			},
+		}
+		issue.ProcessIssueEvents(events)
 
 		expectedIssue := Issue{
-			//beginColumnIdx: 0,
-			//endColumnIdx:   3,
-			ColumnDates: BoardColumns{
-				{Name: col1, Date: date5},
-				{Name: col2, Date: date6},
-				{Name: col3, Date: date7},
-				{Name: col4, Date: date8},
+			ColumnDates: IssuesDateColumns{
+				{ProjectColumn: col1, Date: date5},
+				{ProjectColumn: col2, Date: date6},
+				{ProjectColumn: col3, Date: date7},
+				{ProjectColumn: col4, Date: date8},
 			}}
 
 		assert.Equal(t, expectedIssue.ColumnDates, issue.ColumnDates)
@@ -109,38 +109,37 @@ func TestIssueMetric_ProcessIssueEvents(t *testing.T) {
 		date2 := date1.Add(time.Hour * 24)
 		date3 := date1.Add(time.Hour * 24)
 
-		col1 := "col 1"
-		col2 := "col 2"
-		col3 := "col 3"
-		col4 := "col 4"
+		col1 := &models.ProjectColumn{Name: "col 1", ID: 1}
+		col2 := &models.ProjectColumn{Name: "col 2", ID: 1}
+		col3 := &models.ProjectColumn{Name: "col 3", ID: 1}
+		col4 := &models.ProjectColumn{Name: "col 4", ID: 1}
 
-		movedColumnsEvent := string(MovedColumns)
-
-		events := []*github.IssueEvent{
-			{Event: &movedColumnsEvent, CreatedAt: &date1, ProjectCard: &github.ProjectCard{ColumnName: &col1}},
-			{Event: &movedColumnsEvent, CreatedAt: &date2, ProjectCard: &github.ProjectCard{ColumnName: &col3}},
-			{Event: &movedColumnsEvent, CreatedAt: &date3, ProjectCard: &github.ProjectCard{ColumnName: &col4}},
+		events := models.IssueEvents{
+			{Type: models.MovedColumns, CreatedAt: date1, ColumnName: col1.Name},
+			{Type: models.MovedColumns, CreatedAt: date2, ColumnName: col3.Name},
+			{Type: models.MovedColumns, CreatedAt: date3, ColumnName: col4.Name},
 		}
 
 		issue := Issue{
-			//beginColumnIdx: 0,
-			//endColumnIdx:   3,
-			ColumnDates: BoardColumns{
-				{Name: col1},
-				{Name: col2},
-				{Name: col3},
-				{Name: col4},
-			}}
-		issue.ProcessIssueEvents(events, beginColumnIndex)
+			Issue:            &ghIssue,
+			ProjectID:        42,
+			StartColumnIndex: beginColumnIndex,
+			EndColumnIndex:   3,
+			ColumnDates: IssuesDateColumns{
+				{ProjectColumn: col1},
+				{ProjectColumn: col2},
+				{ProjectColumn: col3},
+				{ProjectColumn: col4},
+			},
+		}
+		issue.ProcessIssueEvents(events)
 
 		expectedIssue := Issue{
-			//beginColumnIdx: 0,
-			//endColumnIdx:   3,
-			ColumnDates: BoardColumns{
-				{Name: col1, Date: date1},
-				{Name: col2, Date: date2},
-				{Name: col3, Date: date2},
-				{Name: col4, Date: date3},
+			ColumnDates: IssuesDateColumns{
+				{ProjectColumn: col1, Date: date1},
+				{ProjectColumn: col2, Date: date2},
+				{ProjectColumn: col3, Date: date2},
+				{ProjectColumn: col4, Date: date3},
 			}}
 
 		assert.Equal(t, expectedIssue.ColumnDates, issue.ColumnDates)
@@ -150,38 +149,39 @@ func TestIssueMetric_ProcessIssueEvents(t *testing.T) {
 		date2 := date1.Add(time.Hour * 24)
 		date3 := date1.Add(time.Hour * 24)
 
-		col1 := "col 1"
-		col2 := "col 2"
-		col3 := "col 3"
-		col4 := "col 4"
+		col1 := &models.ProjectColumn{Name: "col 1", ID: 1}
+		col2 := &models.ProjectColumn{Name: "col 2", ID: 1}
+		col3 := &models.ProjectColumn{Name: "col 3", ID: 1}
+		col4 := &models.ProjectColumn{Name: "col 4", ID: 1}
 
-		movedColumnsEvent := string(MovedColumns)
-		someEvent := "some event"
-		events := []*github.IssueEvent{
-			{Event: &movedColumnsEvent, CreatedAt: &date1, ProjectCard: &github.ProjectCard{ColumnName: &col1}},
-			{Event: &movedColumnsEvent, CreatedAt: &date2, ProjectCard: &github.ProjectCard{ColumnName: &col2}},
-			{Event: &someEvent, CreatedAt: &date3, ProjectCard: &github.ProjectCard{ColumnName: &col3}},
+		events := models.IssueEvents{
+			{Type: models.MovedColumns, CreatedAt: date1, ColumnName: col1.Name},
+			{Type: models.MovedColumns, CreatedAt: date2, ColumnName: col3.Name},
+			{Type: "some event", CreatedAt: date3, ColumnName: col4.Name},
 		}
 
 		issue := Issue{
-			//beginColumnIdx: 0,
-			//endColumnIdx:   3,
-			ColumnDates: BoardColumns{
-				{Name: col1},
-				{Name: col2},
-				{Name: col3},
-				{Name: col4},
-			}}
-		issue.ProcessIssueEvents(events, beginColumnIndex)
+			Issue:            &ghIssue,
+			ProjectID:        42,
+			StartColumnIndex: beginColumnIndex,
+			EndColumnIndex:   3,
+			ColumnDates: IssuesDateColumns{
+				{ProjectColumn: col1},
+				{ProjectColumn: col2},
+				{ProjectColumn: col3},
+				{ProjectColumn: col4},
+			},
+		}
+		issue.ProcessIssueEvents(events)
 
 		expectedIssue := Issue{
 			//beginColumnIdx: 0,
 			//endColumnIdx:   3,
-			ColumnDates: BoardColumns{
-				{Name: col1, Date: date1},
-				{Name: col2, Date: date2},
-				{Name: col3, Date: date3},
-				{Name: col4, Date: date3},
+			ColumnDates: IssuesDateColumns{
+				{ProjectColumn: col1, Date: date1},
+				{ProjectColumn: col2, Date: date2},
+				{ProjectColumn: col3, Date: date3},
+				{ProjectColumn: col4, Date: date3},
 			}}
 
 		assert.Equal(t, expectedIssue.ColumnDates, issue.ColumnDates)
@@ -191,36 +191,37 @@ func TestIssueMetric_ProcessIssueEvents(t *testing.T) {
 		date2 := date1.Add(time.Hour * 24)
 		date3 := date1.Add(time.Hour * 24)
 
-		col1 := "col 1"
-		col2 := "I don't belong here"
-		col3 := "col 3"
-		col4 := "col 4"
+		col1 := &models.ProjectColumn{Name: "col 1", ID: 1}
+		col2 := &models.ProjectColumn{Name: "I don't belong here", ID: 2}
+		col3 := &models.ProjectColumn{Name: "col 3", ID: 3}
+		col4 := &models.ProjectColumn{Name: "col 4", ID: 4}
 
-		movedColumnsEvent := string(MovedColumns)
-		someEvent := "some event"
-		events := []*github.IssueEvent{
-			{Event: &movedColumnsEvent, CreatedAt: &date1, ProjectCard: &github.ProjectCard{ColumnName: &col1}},
-			{Event: &movedColumnsEvent, CreatedAt: &date2, ProjectCard: &github.ProjectCard{ColumnName: &col2}},
-			{Event: &someEvent, CreatedAt: &date3, ProjectCard: &github.ProjectCard{ColumnName: &col3}},
+		events := models.IssueEvents{
+			{Type: models.MovedColumns, CreatedAt: date1, ColumnName: col1.Name},
+			{Type: models.MovedColumns, CreatedAt: date2, ColumnName: col2.Name},
+			{Type: "some event", CreatedAt: date1, ColumnName: col3.Name},
 		}
 
 		issue := Issue{
-			//beginColumnIdx: 0,
-			//endColumnIdx:   3,
-			ColumnDates: BoardColumns{
-				{Name: col1},
-				{Name: col3},
-				{Name: col4},
-			}}
-		issue.ProcessIssueEvents(events, beginColumnIndex)
+			Issue:            &ghIssue,
+			ProjectID:        42,
+			StartColumnIndex: beginColumnIndex,
+			EndColumnIndex:   2,
+			ColumnDates: IssuesDateColumns{
+				{ProjectColumn: col1},
+				{ProjectColumn: col3},
+				{ProjectColumn: col4},
+			},
+		}
+		issue.ProcessIssueEvents(events)
 
 		expectedIssue := Issue{
 			//beginColumnIdx: 0,
 			//endColumnIdx:   3,
-			ColumnDates: BoardColumns{
-				{Name: col1, Date: date1},
-				{Name: col3, Date: date3},
-				{Name: col4, Date: date3},
+			ColumnDates: IssuesDateColumns{
+				{ProjectColumn: col1, Date: date1},
+				{ProjectColumn: col3, Date: date3},
+				{ProjectColumn: col4, Date: date3},
 			}}
 
 		assert.Equal(t, expectedIssue.ColumnDates, issue.ColumnDates)

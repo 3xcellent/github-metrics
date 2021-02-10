@@ -42,9 +42,8 @@ func TestNew(t *testing.T) {
 				if tt.wantErr {
 					assert.EqualError(t, err, tt.wantErrMsg)
 					return
-				} else {
-					t.Errorf("New() got unexpected error: %v", err)
 				}
+				t.Errorf("New() got unexpected error: %v", err)
 			}
 		})
 	}

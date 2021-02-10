@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 
+	"github.com/3xcellent/github-metrics/client"
 	"github.com/3xcellent/github-metrics/config"
 	"github.com/spf13/cobra"
 )
@@ -16,7 +17,6 @@ var projectCommand = &cobra.Command{
 }
 
 func getProject(c *cobra.Command, args []string) error {
-	ctx := context.Background()
 
 	var err error
 	if Config == nil {
@@ -26,21 +26,27 @@ func getProject(c *cobra.Command, args []string) error {
 		}
 	}
 
-	board, err := Config.GetBoard(args[0])
+	runCfg, err := Config.GetRunConfig(args[0])
 	if err != nil {
 		return err
 	}
 
-	project, err := Config.GithubClient.GetProject(ctx, board.BoardID)
+	ctx := context.Background()
+	ghClient, err := client.New(ctx, Config.API)
+	if err != nil {
+		panic(err)
+	}
+
+	project, err := ghClient.GetProject(ctx, runCfg.ProjectID)
 	if err != nil {
 		return err
 	}
 
-	c.Println("Name:\t", project.GetName())
-	c.Println("ID:\t", project.GetID())
-	c.Println("URL:\t", project.GetURL())
-	c.Println("Owner:\t", project.GetOwnerURL())
-	c.Println("Body:\t", project.GetBody())
+	c.Println("Name:\t", project.Name)
+	c.Println("ID:\t", project.ID)
+	c.Println("URL:\t", project.URL)
+	c.Println("Owner:\t", project.OwnerURL)
+	c.Println("Body:\t", project.Body)
 
 	return nil
 }

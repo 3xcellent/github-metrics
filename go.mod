@@ -4,7 +4,6 @@ go 1.13
 
 require (
 	gioui.org v0.0.0-20201219144351-00c4a53036ad
-	gioui.org/example v0.0.0-20201220015606-a7bf96f68a74 // indirect
 	git.sr.ht/~whereswaldon/materials v0.0.0-20201220015048-3f4fb49d1fd9
 	github.com/google/go-github/v32 v32.0.0
 	github.com/joho/godotenv v1.3.0
