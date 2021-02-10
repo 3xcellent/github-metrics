@@ -20,7 +20,7 @@ func (m *MetricsClient) GetProjectColumns(ctx context.Context, projectID int64) 
 		}
 		for _, col := range columnsForPage {
 			logrus.Debugf("\tProjectColumn found: %q - %5d", col.GetName(), col.GetID())
-			projectColumns = append(projectColumns, mapToProjectColumn(col))
+			projectColumns = append(projectColumns, mapToProjectColumn(col, len(projectColumns)))
 		}
 		if resp.NextPage == 0 {
 			break
@@ -32,9 +32,10 @@ func (m *MetricsClient) GetProjectColumns(ctx context.Context, projectID int64) 
 	return projectColumns, nil
 }
 
-func mapToProjectColumn(ghProjectColumn *github.ProjectColumn) models.ProjectColumn {
+func mapToProjectColumn(ghProjectColumn *github.ProjectColumn, index int) models.ProjectColumn {
 	return models.ProjectColumn{
-		Name: ghProjectColumn.GetName(),
-		ID:   ghProjectColumn.GetID(),
+		Name:  ghProjectColumn.GetName(),
+		ID:    ghProjectColumn.GetID(),
+		Index: index,
 	}
 }

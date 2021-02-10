@@ -136,16 +136,24 @@ func HasFeatureLabel(labels []string) bool {
 	return false
 }
 
-func (i *Issue) ProcessIssueEvents(events models.IssueEvents) {
+func (i *Issue) ProcessIssueEvents(ghEvents models.IssueEvents) {
 	logrus.Debugf("Events: %s/%s/%d - %s", i.Owner, i.RepoName, i.Number, i.Title)
 
-	if len(events) == 0 {
+	if len(ghEvents) == 0 {
 		return
 	}
+	i.Events = ghEvents
+
+	i.setColumnDates()
+	i.setEmptyColumnDates()
+}
+
+func (i *Issue) setColumnDates() {
 	var blockedAt time.Time
+	// var startColumn = i.ColumnDates[i.StartColumnIndex]
 	initTime := time.Time{}
 
-	for idx, event := range events {
+	for idx, event := range i.Events {
 		eventNum := idx
 		logPrefix := fmt.Sprintf("  [%d]@%s | %s", eventNum, event.CreatedAt.String(), event.Type)
 		switch event.Type {
@@ -156,13 +164,29 @@ func (i *Issue) ProcessIssueEvents(events models.IssueEvents) {
 			fallthrough // Must fallthrough to MovedColumns for handling of case where card is dropped into column, and has not moved; expecting GetColumnName to be set
 		case models.MovedColumns:
 			logrus.Debugf("%s - moved columns: %q -> %q\n", logPrefix, event.PreviousColumnName, event.ColumnName)
-			boardColumn, _, err := i.getColumn(event.ColumnName)
+
+			movedToColumn, err := i.getColumn(event.ColumnName)
 			if err != nil {
-				logrus.Debugf("error getting board Column: %s\n", err.Error())
+				logrus.Warnf("error getting column: %s\n", err.Error())
 				continue
 			}
-			logrus.Debugf("%s - setting column %q date - %s\n", logPrefix, boardColumn.Name, event.CreatedAt)
-			boardColumn.Date = event.CreatedAt
+
+			if event.PreviousColumnName != "" {
+				movedFromColumn, err := i.getColumn(event.PreviousColumnName)
+				if err != nil {
+					logrus.Warnf("error getting previous column: %s\n", err.Error())
+					continue
+				}
+				if movedFromColumn.Index > movedToColumn.Index {
+					logrus.Debugf("\t * card moved back %d columns, leaving date: %s", movedFromColumn.Index-movedToColumn.Index, i.ColumnDates[movedToColumn.Index].Date.String())
+					continue
+				}
+			}
+
+			logrus.Debugf("%s - setting column %q date - %s\n", logPrefix, movedToColumn.Name, event.CreatedAt)
+			i.ColumnDates[movedToColumn.Index].Date = event.CreatedAt
+			logrus.Debugf("---- verifying i.DateColumns[%d].Date: %s", movedToColumn.Index, i.ColumnDates[movedToColumn.Index].Date.String())
+
 		case models.Labeled:
 			logrus.Debugf("%s: %q", logPrefix, event.Label)
 			cardStatus := ToIssueLabel(event.Label)
@@ -208,7 +232,8 @@ func (i *Issue) ProcessIssueEvents(events models.IssueEvents) {
 			logrus.Debugf("%s: unrecognized event", logPrefix)
 		}
 	}
-
+}
+func (i *Issue) setEmptyColumnDates() {
 	// TODO: handle weekends?
 	// https://stackoverflow.com/questions/31327124/how-can-i-exclude-weekends-golang
 
@@ -217,21 +242,20 @@ func (i *Issue) ProcessIssueEvents(events models.IssueEvents) {
 	// adjusting missing dates to previous column if not set
 	for dateIdx := len(i.ColumnDates) - 1; dateIdx >= 0; dateIdx-- {
 		// if date was never set, set to next date we know something happened
+		logrus.Debugf("idx %d - column: %s - Date: %s", dateIdx, i.ColumnDates[dateIdx].Name, i.ColumnDates[dateIdx].Date.String())
 		if i.ColumnDates[dateIdx].Date.IsZero() {
-			logrus.Debug("\t\tDate.IsZero()")
+			logrus.Debugf("\t\tDate.IsZero()")
 			// if last
 			if dateIdx == i.EndColumnIndex {
-				i.ColumnDates[dateIdx].Date = events[len(events)-1].CreatedAt // get date from last event
-				logrus.Debugf("\t\tsetting to last event date: %s", events[len(events)-1].CreatedAt.String())
+				i.ColumnDates[dateIdx].Date = i.Events[len(i.Events)-1].CreatedAt // get date from last event
+				logrus.Debugf("\t\tsetting to last event date: %s", i.Events[len(i.Events)-1].CreatedAt.String())
 			} else if dateIdx < i.EndColumnIndex && dateIdx > i.StartColumnIndex {
-				logrus.Infof("ColumnDates, at idx %d - (%d items) - col index: %d - %#v", dateIdx, len(i.ColumnDates), i.EndColumnIndex, i.ColumnDates)
 				i.ColumnDates[dateIdx].Date = i.ColumnDates[dateIdx+1].Date // get date from date column just set
 				logrus.Debugf("\t\tsetting to next column date: %s", i.ColumnDates[dateIdx+1].Date.String())
 			} else if dateIdx == i.StartColumnIndex {
-				i.ColumnDates[dateIdx].Date = events[0].CreatedAt // get date from date column just set
-				logrus.Debugf("\t\tsetting to first event date: %s", events[0].CreatedAt.String())
+				i.ColumnDates[dateIdx].Date = i.Events[0].CreatedAt // get date from date column just set
+				logrus.Debugf("\t\tsetting to first event date: %s", i.Events[0].CreatedAt.String())
 			}
-
 		}
 	}
 	for _, date := range i.ColumnDates {
@@ -239,15 +263,15 @@ func (i *Issue) ProcessIssueEvents(events models.IssueEvents) {
 	}
 }
 
-func (i *Issue) getColumn(name string) (*IssuesDateColumn, int, error) {
+func (i *Issue) getColumn(name string) (*IssuesDateColumn, error) {
 	if len(i.ColumnDates) == 0 {
-		return nil, 0, errors.New("ColumnDates is empty")
+		return nil, errors.New("ColumnDates is empty")
 	}
 	lookingFor := strings.ToUpper(name)
-	for index, col := range i.ColumnDates {
+	for _, col := range i.ColumnDates {
 		if strings.ToUpper(col.Name) == lookingFor {
-			return &col, index, nil
+			return &col, nil
 		}
 	}
-	return nil, 0, errors.New("column not found: " + name)
+	return nil, errors.New("column not found: " + name)
 }

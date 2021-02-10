@@ -4,6 +4,7 @@ package models
 type ProjectColumn struct {
 	Name string
 	ID   int64
+	Index int
 }
 
 // ProjectColumns - group pf Projects

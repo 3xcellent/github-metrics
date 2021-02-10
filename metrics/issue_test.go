@@ -1,229 +1,238 @@
 package metrics
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/3xcellent/github-metrics/models"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIssueMetric_ProcessIssueEvents(t *testing.T) {
-	beginColumnIndex := 0
-	ghIssue := models.Issue{}
-
-	t.Run("consecutive column progression", func(t *testing.T) {
-		date1 := time.Date(2001, 2, 3, 4, 5, 6, 7, time.Now().Location())
-		date2 := date1.Add(time.Hour * 24)
-		date3 := date1.Add(time.Hour * 24)
-		date4 := date1.Add(time.Hour * 24)
-
-		col1 := &models.ProjectColumn{Name: "col 1", ID: 1}
-		col2 := &models.ProjectColumn{Name: "col 2", ID: 1}
-		col3 := &models.ProjectColumn{Name: "col 3", ID: 1}
-		col4 := &models.ProjectColumn{Name: "col 4", ID: 1}
+func TestIssueMetric_setColumnDates(t *testing.T) {
+	logrus.SetLevel(logrus.DebugLevel)
+	t.Run("events with consecutive column progression", func(t *testing.T) {
+		dates := newDates(4)
+		cols := newProjectColumns(4)
 
 		events := models.IssueEvents{
-			{Type: models.MovedColumns, CreatedAt: date1, ColumnName: col1.Name},
-			{Type: models.MovedColumns, CreatedAt: date2, ColumnName: col2.Name},
-			{Type: models.MovedColumns, CreatedAt: date3, ColumnName: col3.Name},
-			{Type: models.MovedColumns, CreatedAt: date4, ColumnName: col4.Name},
+			{Type: models.MovedColumns, CreatedAt: dates[0], ColumnName: cols[0].Name},
+			{Type: models.MovedColumns, CreatedAt: dates[1], ColumnName: cols[1].Name},
+			{Type: models.MovedColumns, CreatedAt: dates[2], ColumnName: cols[2].Name},
+			{Type: models.MovedColumns, CreatedAt: dates[3], ColumnName: cols[3].Name},
 		}
 
 		issue := Issue{
-			Issue:            &ghIssue,
+			Issue:            newIssue(),
 			ProjectID:        42,
-			StartColumnIndex: beginColumnIndex,
+			StartColumnIndex: 0,
 			EndColumnIndex:   3,
 			ColumnDates: IssuesDateColumns{
-				{ProjectColumn: col1},
-				{ProjectColumn: col2},
-				{ProjectColumn: col3},
-				{ProjectColumn: col4},
+				{ProjectColumn: &cols[0]},
+				{ProjectColumn: &cols[1]},
+				{ProjectColumn: &cols[2]},
+				{ProjectColumn: &cols[3]},
 			},
 		}
-		issue.ProcessIssueEvents(events)
+		issue.Events = events
+		issue.setColumnDates()
 
-		expectedIssue := Issue{
-			ColumnDates: IssuesDateColumns{
-				{ProjectColumn: col1, Date: date1},
-				{ProjectColumn: col2, Date: date2},
-				{ProjectColumn: col3, Date: date3},
-				{ProjectColumn: col4, Date: date4},
-			}}
+		t.Run("assign columndates with those consecutive dates", func(t *testing.T) {
+			expectedIssue := Issue{
+				ColumnDates: IssuesDateColumns{
+					{ProjectColumn: &cols[0], Date: dates[0]},
+					{ProjectColumn: &cols[1], Date: dates[1]},
+					{ProjectColumn: &cols[2], Date: dates[2]},
+					{ProjectColumn: &cols[3], Date: dates[3]},
+				},
+			}
 
-		assert.Equal(t, expectedIssue.ColumnDates, issue.ColumnDates)
+			assertColumnDates(t, expectedIssue.ColumnDates, issue.ColumnDates)
+		})
 	})
-	t.Run("column goes back a column before progressing", func(t *testing.T) {
-		date1 := time.Date(2001, 2, 3, 4, 5, 6, 7, time.Now().Location())
-		date2 := date1.Add(time.Hour * 24)
-		date3 := date1.Add(time.Hour * 24)
-		date4 := date1.Add(time.Hour * 24)
-		date5 := date1.Add(time.Hour * 24)
-		date6 := date1.Add(time.Hour * 24)
-		date7 := date1.Add(time.Hour * 24)
-		date8 := date1.Add(time.Hour * 24)
-
-		col1 := &models.ProjectColumn{Name: "col 1", ID: 1}
-		col2 := &models.ProjectColumn{Name: "col 2", ID: 1}
-		col3 := &models.ProjectColumn{Name: "col 3", ID: 1}
-		col4 := &models.ProjectColumn{Name: "col 4", ID: 1}
+	t.Run("events with the previous column index greater than the new column", func(t *testing.T) {
+		dates := newDates(8)
+		cols := newProjectColumns(4)
 
 		events := models.IssueEvents{
-			{Type: models.MovedColumns, CreatedAt: date1, ColumnName: col1.Name},
-			{Type: models.MovedColumns, CreatedAt: date2, ColumnName: col2.Name},
-			{Type: models.MovedColumns, CreatedAt: date3, ColumnName: col3.Name},
-			{Type: models.MovedColumns, CreatedAt: date4, ColumnName: col4.Name},
-			{Type: models.MovedColumns, CreatedAt: date5, ColumnName: col1.Name},
-			{Type: models.MovedColumns, CreatedAt: date6, ColumnName: col2.Name},
-			{Type: models.MovedColumns, CreatedAt: date7, ColumnName: col3.Name},
-			{Type: models.MovedColumns, CreatedAt: date8, ColumnName: col4.Name},
+			{Type: models.MovedColumns, CreatedAt: dates[0], ColumnName: cols[0].Name},
+			{Type: models.MovedColumns, CreatedAt: dates[1], ColumnName: cols[1].Name},
+			{Type: models.MovedColumns, CreatedAt: dates[2], ColumnName: cols[2].Name},
+			{Type: models.MovedColumns, CreatedAt: dates[3], ColumnName: cols[3].Name},
+			{Type: models.MovedColumns, CreatedAt: dates[4], ColumnName: cols[0].Name, PreviousColumnName: cols[3].Name}, // important when moving backwards
+			{Type: models.MovedColumns, CreatedAt: dates[5], ColumnName: cols[1].Name},
+			{Type: models.MovedColumns, CreatedAt: dates[6], ColumnName: cols[2].Name},
+			{Type: models.MovedColumns, CreatedAt: dates[7], ColumnName: cols[3].Name},
 		}
 
 		issue := Issue{
-			Issue:            &ghIssue,
-			ProjectID:        42,
-			StartColumnIndex: beginColumnIndex,
+			Issue:            newIssue(),
+			StartColumnIndex: 0,
 			EndColumnIndex:   3,
 			ColumnDates: IssuesDateColumns{
-				{ProjectColumn: col1},
-				{ProjectColumn: col2},
-				{ProjectColumn: col3},
-				{ProjectColumn: col4},
+				{ProjectColumn: &cols[0]},
+				{ProjectColumn: &cols[1]},
+				{ProjectColumn: &cols[2]},
+				{ProjectColumn: &cols[3]},
 			},
 		}
-		issue.ProcessIssueEvents(events)
+		issue.Events = events
 
-		expectedIssue := Issue{
-			ColumnDates: IssuesDateColumns{
-				{ProjectColumn: col1, Date: date5},
-				{ProjectColumn: col2, Date: date6},
-				{ProjectColumn: col3, Date: date7},
-				{ProjectColumn: col4, Date: date8},
-			}}
+		issue.setColumnDates()
 
-		assert.Equal(t, expectedIssue.ColumnDates, issue.ColumnDates)
+		t.Run("do not get assigned on the new column", func(t *testing.T) {
+			expectedIssue := Issue{
+				ColumnDates: IssuesDateColumns{
+					{ProjectColumn: &cols[0], Date: dates[0]}, // not dates[4]
+					{ProjectColumn: &cols[1], Date: dates[5]},
+					{ProjectColumn: &cols[2], Date: dates[6]},
+					{ProjectColumn: &cols[3], Date: dates[7]},
+				},
+			}
+
+			assertColumnDates(t, expectedIssue.ColumnDates, issue.ColumnDates)
+		})
 	})
-	t.Run("when column is skipped, it will have same date as next column", func(t *testing.T) {
-		date1 := time.Date(2001, 2, 3, 4, 5, 6, 7, time.Now().Location())
-		date2 := date1.Add(time.Hour * 24)
-		date3 := date1.Add(time.Hour * 24)
-
-		col1 := &models.ProjectColumn{Name: "col 1", ID: 1}
-		col2 := &models.ProjectColumn{Name: "col 2", ID: 1}
-		col3 := &models.ProjectColumn{Name: "col 3", ID: 1}
-		col4 := &models.ProjectColumn{Name: "col 4", ID: 1}
-
-		events := models.IssueEvents{
-			{Type: models.MovedColumns, CreatedAt: date1, ColumnName: col1.Name},
-			{Type: models.MovedColumns, CreatedAt: date2, ColumnName: col3.Name},
-			{Type: models.MovedColumns, CreatedAt: date3, ColumnName: col4.Name},
-		}
+	t.Run("events with columns not in list of project columns", func(t *testing.T) {
+		dates := newDates(4)
+		cols := newProjectColumns(4)
 
 		issue := Issue{
-			Issue:            &ghIssue,
+			Issue:            newIssue(),
 			ProjectID:        42,
-			StartColumnIndex: beginColumnIndex,
-			EndColumnIndex:   3,
-			ColumnDates: IssuesDateColumns{
-				{ProjectColumn: col1},
-				{ProjectColumn: col2},
-				{ProjectColumn: col3},
-				{ProjectColumn: col4},
-			},
-		}
-		issue.ProcessIssueEvents(events)
-
-		expectedIssue := Issue{
-			ColumnDates: IssuesDateColumns{
-				{ProjectColumn: col1, Date: date1},
-				{ProjectColumn: col2, Date: date2},
-				{ProjectColumn: col3, Date: date2},
-				{ProjectColumn: col4, Date: date3},
-			}}
-
-		assert.Equal(t, expectedIssue.ColumnDates, issue.ColumnDates)
-	})
-	t.Run("when column is skipped is last column, it gets assigned last event date", func(t *testing.T) {
-		date1 := time.Date(2001, 2, 3, 4, 5, 6, 7, time.Now().Location())
-		date2 := date1.Add(time.Hour * 24)
-		date3 := date1.Add(time.Hour * 24)
-
-		col1 := &models.ProjectColumn{Name: "col 1", ID: 1}
-		col2 := &models.ProjectColumn{Name: "col 2", ID: 1}
-		col3 := &models.ProjectColumn{Name: "col 3", ID: 1}
-		col4 := &models.ProjectColumn{Name: "col 4", ID: 1}
-
-		events := models.IssueEvents{
-			{Type: models.MovedColumns, CreatedAt: date1, ColumnName: col1.Name},
-			{Type: models.MovedColumns, CreatedAt: date2, ColumnName: col3.Name},
-			{Type: "some event", CreatedAt: date3, ColumnName: col4.Name},
-		}
-
-		issue := Issue{
-			Issue:            &ghIssue,
-			ProjectID:        42,
-			StartColumnIndex: beginColumnIndex,
-			EndColumnIndex:   3,
-			ColumnDates: IssuesDateColumns{
-				{ProjectColumn: col1},
-				{ProjectColumn: col2},
-				{ProjectColumn: col3},
-				{ProjectColumn: col4},
-			},
-		}
-		issue.ProcessIssueEvents(events)
-
-		expectedIssue := Issue{
-			//beginColumnIdx: 0,
-			//endColumnIdx:   3,
-			ColumnDates: IssuesDateColumns{
-				{ProjectColumn: col1, Date: date1},
-				{ProjectColumn: col2, Date: date2},
-				{ProjectColumn: col3, Date: date3},
-				{ProjectColumn: col4, Date: date3},
-			}}
-
-		assert.Equal(t, expectedIssue.ColumnDates, issue.ColumnDates)
-	})
-	t.Run("when event column is not in list of board columns", func(t *testing.T) {
-		date1 := time.Date(2001, 2, 3, 4, 5, 6, 7, time.Now().Location())
-		date2 := date1.Add(time.Hour * 24)
-		date3 := date1.Add(time.Hour * 24)
-
-		col1 := &models.ProjectColumn{Name: "col 1", ID: 1}
-		col2 := &models.ProjectColumn{Name: "I don't belong here", ID: 2}
-		col3 := &models.ProjectColumn{Name: "col 3", ID: 3}
-		col4 := &models.ProjectColumn{Name: "col 4", ID: 4}
-
-		events := models.IssueEvents{
-			{Type: models.MovedColumns, CreatedAt: date1, ColumnName: col1.Name},
-			{Type: models.MovedColumns, CreatedAt: date2, ColumnName: col2.Name},
-			{Type: "some event", CreatedAt: date1, ColumnName: col3.Name},
-		}
-
-		issue := Issue{
-			Issue:            &ghIssue,
-			ProjectID:        42,
-			StartColumnIndex: beginColumnIndex,
+			StartColumnIndex: 0,
 			EndColumnIndex:   2,
 			ColumnDates: IssuesDateColumns{
-				{ProjectColumn: col1},
-				{ProjectColumn: col3},
-				{ProjectColumn: col4},
+				{ProjectColumn: &cols[0]},
+				{ProjectColumn: &cols[1]},
+				{ProjectColumn: &cols[2]},
+				{ProjectColumn: &cols[3]},
 			},
 		}
-		issue.ProcessIssueEvents(events)
 
-		expectedIssue := Issue{
-			//beginColumnIdx: 0,
-			//endColumnIdx:   3,
-			ColumnDates: IssuesDateColumns{
-				{ProjectColumn: col1, Date: date1},
-				{ProjectColumn: col3, Date: date3},
-				{ProjectColumn: col4, Date: date3},
-			}}
+		events := models.IssueEvents{
+			{Type: models.MovedColumns, CreatedAt: dates[0], ColumnName: cols[0].Name},
+			{Type: models.MovedColumns, CreatedAt: dates[1], ColumnName: "Column that doesn't exist"},
+			{Type: models.MovedColumns, CreatedAt: dates[2], ColumnName: cols[2].Name},
+			{Type: models.MovedColumns, CreatedAt: dates[3], ColumnName: cols[3].Name},
+		}
+		issue.Events = events
+		t.Run("gets ignored", func(t *testing.T) {
+			issue.setColumnDates()
 
-		assert.Equal(t, expectedIssue.ColumnDates, issue.ColumnDates)
+			expectedIssue := Issue{
+				ColumnDates: IssuesDateColumns{
+					{ProjectColumn: &cols[0], Date: dates[0]},
+					{ProjectColumn: &cols[1]}, // never assigned
+					{ProjectColumn: &cols[2], Date: dates[2]},
+					{ProjectColumn: &cols[3], Date: dates[3]},
+				},
+			}
+
+			assertColumnDates(t, expectedIssue.ColumnDates, issue.ColumnDates)
+		})
 	})
+}
+func TestIssueMetric_setEmptyColumnDates(t *testing.T) {
+	t.Run("ColumnDates with empty dates", func(t *testing.T) {
+		dates := newDates(4)
+		cols := newProjectColumns(4)
+		issue := Issue{
+			Issue:            newIssue(),
+			ProjectID:        42,
+			StartColumnIndex: 0,
+			EndColumnIndex:   3,
+			ColumnDates: IssuesDateColumns{
+				{ProjectColumn: &cols[0], Date: dates[0]},
+				{ProjectColumn: &cols[1], Date: dates[1]},
+				{ProjectColumn: &cols[2]},
+				{ProjectColumn: &cols[3], Date: dates[3]},
+			},
+		}
+		t.Run("get assigned next column date", func(t *testing.T) {
+			issue.setEmptyColumnDates()
+
+			expectedIssue := Issue{
+				ColumnDates: IssuesDateColumns{
+					{ProjectColumn: &cols[0], Date: dates[0]},
+					{ProjectColumn: &cols[1], Date: dates[1]},
+					{ProjectColumn: &cols[2], Date: dates[3]},
+					{ProjectColumn: &cols[3], Date: dates[3]},
+				},
+			}
+
+			assertColumnDates(t, expectedIssue.ColumnDates, issue.ColumnDates)
+		})
+	})
+
+	t.Run("when last ColumnDate not set", func(t *testing.T) {
+		dates := newDates(4)
+		cols := newProjectColumns(4)
+
+		issue := Issue{
+			Issue:            newIssue(),
+			ProjectID:        42,
+			StartColumnIndex: 0,
+			EndColumnIndex:   3,
+			ColumnDates: IssuesDateColumns{
+				{ProjectColumn: &cols[0], Date: dates[0]},
+				{ProjectColumn: &cols[1], Date: dates[1]},
+				{ProjectColumn: &cols[2], Date: dates[2]},
+				{ProjectColumn: &cols[3]},
+			},
+		}
+		t.Run("gets assigned last event date", func(t *testing.T) {
+			events := models.IssueEvents{
+				{Type: "test event", CreatedAt: dates[0], ColumnName: cols[0].Name},
+				{Type: "test event", CreatedAt: dates[1], ColumnName: cols[1].Name},
+				{Type: "test event", CreatedAt: dates[2], ColumnName: cols[2].Name},
+				{Type: "test event", CreatedAt: dates[3], ColumnName: cols[3].Name},
+			}
+			issue.Events = events
+			issue.setEmptyColumnDates()
+
+			expectedIssue := Issue{
+				ColumnDates: IssuesDateColumns{
+					{ProjectColumn: &cols[0], Date: dates[0]},
+					{ProjectColumn: &cols[1], Date: dates[1]},
+					{ProjectColumn: &cols[2], Date: dates[2]},
+					{ProjectColumn: &cols[3], Date: dates[3]},
+				},
+			}
+
+			assertColumnDates(t, expectedIssue.ColumnDates, issue.ColumnDates)
+		})
+	})
+
+}
+
+func newIssue() *models.Issue {
+	return &models.Issue{}
+}
+
+func newDates(num int) []time.Time {
+	dates := make([]time.Time, 0, num)
+	for i := 0; i < num; i++ {
+		if i == 0 {
+			dates = append(dates, time.Date(2001, 2, 3, 4, 5, 6, 7, time.Now().Location()))
+		} else {
+			dates = append(dates, dates[0].AddDate(0, 0, i))
+		}
+	}
+	return dates
+}
+
+func newProjectColumns(num int) models.ProjectColumns {
+	cols := make(models.ProjectColumns, 0, num)
+	for i := 0; i < num; i++ {
+		cols = append(cols, models.ProjectColumn{Name: fmt.Sprintf("col %d", i), ID: int64(i), Index: i})
+	}
+	return cols
+}
+
+func assertColumnDates(t *testing.T, expected, actual IssuesDateColumns) {
+	for idx, expectedColumnDate := range expected {
+		assert.Equal(t, expectedColumnDate, actual[idx], "columnDate[%d] column: %s | was: %s - expected %s", idx, actual[idx].Date.String(), expectedColumnDate.Name, expectedColumnDate.Date.String())
+	}
 }

@@ -8,14 +8,9 @@ type Issue struct {
 	RepoName  string
 	Title     string
 	Number    int
-	Events    IssueEvents
 	Labels    []string
 	CreatedAt time.Time
-
-	// Type        string
-	// IsFeature   bool
-	// BlockedTime time.Duration
-	// DevTime     time.Duration
+	Events    IssueEvents
 }
 
 // Issues - slice of Issue
