@@ -76,20 +76,24 @@ func (r *ColumnsRunner) Run(ctx context.Context) error {
 
 	project, err := r.Client.GetProject(ctx, r.ProjectID)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	r.ProjectName = project.Name
 
 	projectColumns, err := r.Client.GetProjectColumns(ctx, r.ProjectID)
 	if err != nil {
-		logrus.Warnf("error retrieving projectColumns: %v", err)
+		return err
 	}
-	r.setColumnParams(projectColumns)
+
+	err = r.setColumnParams(projectColumns)
+	if err != nil {
+		return err
+	}
 
 	logrus.Debugf("getting repos: %#v", r)
-	repos, err := r.Client.GetRepos(ctx, r.EndColumnID)
+	repos, err := r.Client.GetReposFromProjectColumn(ctx, r.EndColumnID)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	r.Log(fmt.Sprintf("-----  Found Repos: %s", strings.Join(repos, ",")))
 

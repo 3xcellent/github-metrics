@@ -115,17 +115,17 @@ type FakeClient struct {
 		result1 models.PullRequests
 		result2 error
 	}
-	GetReposStub        func(context.Context, int64) ([]string, error)
-	getReposMutex       sync.RWMutex
-	getReposArgsForCall []struct {
+	GetReposFromProjectColumnStub        func(context.Context, int64) ([]string, error)
+	getReposFromProjectColumnMutex       sync.RWMutex
+	getReposFromProjectColumnArgsForCall []struct {
 		arg1 context.Context
 		arg2 int64
 	}
-	getReposReturns struct {
+	getReposFromProjectColumnReturns struct {
 		result1 []string
 		result2 error
 	}
-	getReposReturnsOnCall map[int]struct {
+	getReposFromProjectColumnReturnsOnCall map[int]struct {
 		result1 []string
 		result2 error
 	}
@@ -598,17 +598,17 @@ func (fake *FakeClient) GetPullRequestsReturnsOnCall(i int, result1 models.PullR
 	}{result1, result2}
 }
 
-func (fake *FakeClient) GetRepos(arg1 context.Context, arg2 int64) ([]string, error) {
-	fake.getReposMutex.Lock()
-	ret, specificReturn := fake.getReposReturnsOnCall[len(fake.getReposArgsForCall)]
-	fake.getReposArgsForCall = append(fake.getReposArgsForCall, struct {
+func (fake *FakeClient) GetReposFromProjectColumn(arg1 context.Context, arg2 int64) ([]string, error) {
+	fake.getReposFromProjectColumnMutex.Lock()
+	ret, specificReturn := fake.getReposFromProjectColumnReturnsOnCall[len(fake.getReposFromProjectColumnArgsForCall)]
+	fake.getReposFromProjectColumnArgsForCall = append(fake.getReposFromProjectColumnArgsForCall, struct {
 		arg1 context.Context
 		arg2 int64
 	}{arg1, arg2})
-	stub := fake.GetReposStub
-	fakeReturns := fake.getReposReturns
-	fake.recordInvocation("GetRepos", []interface{}{arg1, arg2})
-	fake.getReposMutex.Unlock()
+	stub := fake.GetReposFromProjectColumnStub
+	fakeReturns := fake.getReposFromProjectColumnReturns
+	fake.recordInvocation("GetReposFromProjectColumn", []interface{}{arg1, arg2})
+	fake.getReposFromProjectColumnMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
 	}
@@ -618,46 +618,46 @@ func (fake *FakeClient) GetRepos(arg1 context.Context, arg2 int64) ([]string, er
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeClient) GetReposCallCount() int {
-	fake.getReposMutex.RLock()
-	defer fake.getReposMutex.RUnlock()
-	return len(fake.getReposArgsForCall)
+func (fake *FakeClient) GetReposFromProjectColumnCallCount() int {
+	fake.getReposFromProjectColumnMutex.RLock()
+	defer fake.getReposFromProjectColumnMutex.RUnlock()
+	return len(fake.getReposFromProjectColumnArgsForCall)
 }
 
-func (fake *FakeClient) GetReposCalls(stub func(context.Context, int64) ([]string, error)) {
-	fake.getReposMutex.Lock()
-	defer fake.getReposMutex.Unlock()
-	fake.GetReposStub = stub
+func (fake *FakeClient) GetReposFromProjectColumnCalls(stub func(context.Context, int64) ([]string, error)) {
+	fake.getReposFromProjectColumnMutex.Lock()
+	defer fake.getReposFromProjectColumnMutex.Unlock()
+	fake.GetReposFromProjectColumnStub = stub
 }
 
-func (fake *FakeClient) GetReposArgsForCall(i int) (context.Context, int64) {
-	fake.getReposMutex.RLock()
-	defer fake.getReposMutex.RUnlock()
-	argsForCall := fake.getReposArgsForCall[i]
+func (fake *FakeClient) GetReposFromProjectColumnArgsForCall(i int) (context.Context, int64) {
+	fake.getReposFromProjectColumnMutex.RLock()
+	defer fake.getReposFromProjectColumnMutex.RUnlock()
+	argsForCall := fake.getReposFromProjectColumnArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *FakeClient) GetReposReturns(result1 []string, result2 error) {
-	fake.getReposMutex.Lock()
-	defer fake.getReposMutex.Unlock()
-	fake.GetReposStub = nil
-	fake.getReposReturns = struct {
+func (fake *FakeClient) GetReposFromProjectColumnReturns(result1 []string, result2 error) {
+	fake.getReposFromProjectColumnMutex.Lock()
+	defer fake.getReposFromProjectColumnMutex.Unlock()
+	fake.GetReposFromProjectColumnStub = nil
+	fake.getReposFromProjectColumnReturns = struct {
 		result1 []string
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeClient) GetReposReturnsOnCall(i int, result1 []string, result2 error) {
-	fake.getReposMutex.Lock()
-	defer fake.getReposMutex.Unlock()
-	fake.GetReposStub = nil
-	if fake.getReposReturnsOnCall == nil {
-		fake.getReposReturnsOnCall = make(map[int]struct {
+func (fake *FakeClient) GetReposFromProjectColumnReturnsOnCall(i int, result1 []string, result2 error) {
+	fake.getReposFromProjectColumnMutex.Lock()
+	defer fake.getReposFromProjectColumnMutex.Unlock()
+	fake.GetReposFromProjectColumnStub = nil
+	if fake.getReposFromProjectColumnReturnsOnCall == nil {
+		fake.getReposFromProjectColumnReturnsOnCall = make(map[int]struct {
 			result1 []string
 			result2 error
 		})
 	}
-	fake.getReposReturnsOnCall[i] = struct {
+	fake.getReposFromProjectColumnReturnsOnCall[i] = struct {
 		result1 []string
 		result2 error
 	}{result1, result2}
@@ -680,8 +680,8 @@ func (fake *FakeClient) Invocations() map[string][][]interface{} {
 	defer fake.getProjectsMutex.RUnlock()
 	fake.getPullRequestsMutex.RLock()
 	defer fake.getPullRequestsMutex.RUnlock()
-	fake.getReposMutex.RLock()
-	defer fake.getReposMutex.RUnlock()
+	fake.getReposFromProjectColumnMutex.RLock()
+	defer fake.getReposFromProjectColumnMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

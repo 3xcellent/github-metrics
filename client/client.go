@@ -33,7 +33,7 @@ type Client interface {
 	GetPullRequests(ctx context.Context, repoOwner, repoName string) (models.PullRequests, error)
 	GetIssues(ctx context.Context, repoOwner string, reposNames []string, beginDate, endDate time.Time) models.Issues
 	GetIssueEvents(ctx context.Context, repoOwner, repoName string, issueNumber int) (models.IssueEvents, error)
-	GetRepos(ctx context.Context, columnID int64) ([]string, error)
+	GetReposFromProjectColumn(ctx context.Context, columnID int64) ([]string, error)
 }
 
 func authenticateHTTPClient(ctx context.Context, token string) *http.Client {

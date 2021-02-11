@@ -1,6 +1,7 @@
 package runners
 
 import (
+	"errors"
 	"strings"
 	"time"
 
@@ -64,7 +65,13 @@ func NewBaseRunner(metricsCfg config.RunConfig, client client.Client) *Runner {
 	}
 }
 
-func (r *Runner) setColumnParams(projectColumns models.ProjectColumns) {
+var errEmptyProjectColumns = errors.New("cannot set indexes: ProjectColumns is empty")
+
+// SetColumnParams - sets runner Start/EmdColumnIndec based ProjectColumns and runner.StartColumn/EndColumn values (from RunConfig)
+func (r *Runner) setColumnParams(projectColumns models.ProjectColumns) error {
+	if len(projectColumns) == 0 {
+		return errEmptyProjectColumns
+	}
 	colNames := make([]string, 0)
 	for i, col := range projectColumns {
 		colNames = append(colNames, col.Name)
@@ -85,6 +92,7 @@ func (r *Runner) setColumnParams(projectColumns models.ProjectColumns) {
 	r.EndColumnID = projectColumns[r.EndColumnIndex].ID
 	r.ColumnNames = colNames[r.StartColumnIndex : r.EndColumnIndex+1]
 	logrus.Debugf("\tcalculating for columns [%d:%d]: %s", r.StartColumnIndex, r.EndColumnIndex, strings.Join(r.ColumnNames, ","))
+	return nil
 }
 
 // Log - uses the provided logFunc for log text

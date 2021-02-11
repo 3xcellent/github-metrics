@@ -9,8 +9,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// GetRepos - returns slice of repo names gathered from the issues found in the columnID provided.
-func (m *MetricsClient) GetRepos(ctx context.Context, colID int64) ([]string, error) {
+// GetReposFromProjectColumn - returns slice of repo names gathered from the issues found in the columnID provided.
+func (m *MetricsClient) GetReposFromProjectColumn(ctx context.Context, colID int64) ([]string, error) {
 	repos := make([]string, 0)
 	repoMap := map[string]struct{}{}
 	state := all

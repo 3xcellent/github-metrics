@@ -75,7 +75,12 @@ func (r *IssuesRunner) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	r.setColumnParams(projectColumns)
+
+	err = r.setColumnParams(projectColumns)
+	if err != nil {
+		return err
+	}
+
 	dateCols := make(metrics.IssuesDateColumns, 0)
 	for _, col := range projectColumns {
 		dateCols = append(dateCols, metrics.IssuesDateColumn{ProjectColumn: &models.ProjectColumn{Name: col.Name, ID: col.ID}})
@@ -94,7 +99,7 @@ func (r *IssuesRunner) Run(ctx context.Context) error {
 		}
 		r.Issues = append(r.Issues, metricsIssue)
 	} else {
-		repos, err := r.Client.GetRepos(ctx, projectColumns[len(projectColumns)-1].ID)
+		repos, err := r.Client.GetReposFromProjectColumn(ctx, projectColumns[len(projectColumns)-1].ID)
 		if err != nil {
 			return err
 		}
