@@ -63,7 +63,7 @@ func (r *IssuesRunner) Values() [][]string {
 }
 
 // Run - Runs Columns Mwtric (gathers data from github and processes repos, issues, and events)
-func (r *IssuesRunner) run(ctx context.Context) error {
+func (r *IssuesRunner) Run(ctx context.Context) error {
 	project, err := r.Client.GetProject(ctx, r.ProjectID)
 	if err != nil {
 		return err

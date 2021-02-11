@@ -10,6 +10,7 @@ import (
 	"github.com/3xcellent/github-metrics/client"
 	"github.com/3xcellent/github-metrics/config"
 	"github.com/3xcellent/github-metrics/metrics"
+	"github.com/3xcellent/github-metrics/models"
 	"github.com/spf13/cobra"
 )
 
@@ -54,9 +55,14 @@ func pullRequests(c *cobra.Command, args []string) error {
 		return err
 	}
 
-	var repoList []string
+	var repoList models.Repositories
 	if len(repoNames) > 0 {
-		repoList = strings.Split(repoNames, ",")
+		for _, repoName := range strings.Split(repoNames, ",") {
+			repoList = append(repoList, models.Repository{
+				Name:  repoName,
+				Owner: runCfg.Owner,
+			})
+		}
 	} else {
 		repoList, err = ghClient.GetReposFromProjectColumn(c.Context(), projectColumns[len(projectColumns)-1].ID)
 		if err != nil {
@@ -65,8 +71,8 @@ func pullRequests(c *cobra.Command, args []string) error {
 	}
 
 	for _, repo := range repoList {
-		repo = strings.Trim(repo, " ")
-		output, err := os.Create(fmt.Sprintf("%s_pullrequests.csv", repo))
+		repoName := strings.Trim(repo.Name, " ")
+		output, err := os.Create(fmt.Sprintf("%s_pullrequests.csv", repoName))
 		writer := csv.NewWriter(output)
 
 		cols := []string{
@@ -85,7 +91,7 @@ func pullRequests(c *cobra.Command, args []string) error {
 			panic(err)
 		}
 
-		prs, err := ghClient.GetPullRequests(c.Context(), Config.Owner, repo)
+		prs, err := ghClient.GetPullRequests(c.Context(), Config.Owner, repo.Name)
 		if err != nil {
 			return err
 		}
