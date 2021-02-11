@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/3xcellent/github-metrics/client"
 	"github.com/3xcellent/github-metrics/config"
 	"github.com/3xcellent/github-metrics/metrics"
 	"github.com/3xcellent/github-metrics/models"
@@ -22,7 +21,7 @@ type IssuesRunner struct {
 }
 
 // NewIssuesRunner - returns metric runner for running the columns metric, requires a project id and client
-func NewIssuesRunner(metricsCfg config.RunConfig, client client.Client) IssuesRunner {
+func NewIssuesRunner(metricsCfg config.RunConfig, client Client) IssuesRunner {
 	m := IssuesRunner{
 		Runner: NewBaseRunner(metricsCfg, client),
 	}
@@ -64,7 +63,7 @@ func (r *IssuesRunner) Values() [][]string {
 }
 
 // Run - Runs Columns Mwtric (gathers data from github and processes repos, issues, and events)
-func (r *IssuesRunner) Run(ctx context.Context) error {
+func (r *IssuesRunner) run(ctx context.Context) error {
 	project, err := r.Client.GetProject(ctx, r.ProjectID)
 	if err != nil {
 		return err
@@ -103,12 +102,13 @@ func (r *IssuesRunner) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		for _, ghIssue := range r.Client.GetIssues(ctx,
-			r.Owner,
-			repos,
-			r.StartDate,
-			r.EndDate,
-		) {
+
+		ghIssues, err := r.Client.GetIssues(ctx, r.Owner, repos.Names(), r.StartDate, r.EndDate)
+		if err != nil {
+			return err
+		}
+
+		for _, ghIssue := range ghIssues {
 			metricsIssue, err := r.newMetricsIssue(ctx, ghIssue, dateCols)
 			if err != nil {
 				return err

@@ -40,7 +40,7 @@ func MapToIssueEvents(issuesEvents []*github.IssueEvent) models.IssueEvents {
 // MapToIssueEvent - maps *github.IssueEvent to models.IssueEvent
 func MapToIssueEvent(e *github.IssueEvent) models.IssueEvent {
 	return models.IssueEvent{
-		Event:              e.GetEvent(),
+		Event:              e.GetEvent(), // TODO: remove since using Type throughout
 		ProjectID:          e.GetProjectCard().GetProjectID(),
 		Type:               models.IssueEventType(strings.ToUpper(e.GetEvent())),
 		ColumnName:         e.GetProjectCard().GetColumnName(),

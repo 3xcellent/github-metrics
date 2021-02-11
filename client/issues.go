@@ -10,7 +10,7 @@ import (
 )
 
 // GetIssues - uses owner, list of repo names, begindate and enddates to retrieve []*github.Issue and map to models.Issues
-func (m *MetricsClient) GetIssues(ctx context.Context, repoOwner string, repos []string, beginDate, endDate time.Time) models.Issues {
+func (m *MetricsClient) GetIssues(ctx context.Context, repoOwner string, repos []string, beginDate, endDate time.Time) (models.Issues, error) {
 	projectIssues := make(models.Issues, 0)
 	for _, repo := range repos {
 		repoIssues := make(models.Issues, 0)
@@ -28,7 +28,7 @@ func (m *MetricsClient) GetIssues(ctx context.Context, repoOwner string, repos [
 				ListOptions: opt,
 			})
 			if err != nil {
-				panic(err)
+				return nil, err
 			}
 			if resp != nil && resp.StatusCode == 404 {
 				logrus.Warnf("URL Not Found: %s", resp.Request.URL.String())
@@ -55,7 +55,7 @@ func (m *MetricsClient) GetIssues(ctx context.Context, repoOwner string, repos [
 		logrus.Debugf("repo %s has %d issues", repo, len(repoIssues))
 		projectIssues = append(projectIssues, repoIssues...)
 	}
-	return projectIssues
+	return projectIssues, nil
 }
 
 // GetIssue - uses owner, repo and issue number to retrieve *gitthub.Issue and map to models.Issue.

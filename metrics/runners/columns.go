@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/3xcellent/github-metrics/client"
 	"github.com/3xcellent/github-metrics/config"
 	"github.com/3xcellent/github-metrics/metrics"
 	"github.com/3xcellent/github-metrics/models"
@@ -21,7 +20,7 @@ type ColumnsRunner struct {
 }
 
 // NewColumnsRunner - returns metric runner for running the columns metric, requires a project id and client
-func NewColumnsRunner(metricsCfg config.RunConfig, client client.Client) ColumnsRunner {
+func NewColumnsRunner(metricsCfg config.RunConfig, client Client) ColumnsRunner {
 	m := ColumnsRunner{
 		Runner: NewBaseRunner(metricsCfg, client),
 		Cols:   metrics.NewDateColumnMap(metricsCfg.StartDate, metricsCfg.EndDate),
@@ -53,7 +52,7 @@ func (r *ColumnsRunner) Values() [][]string {
 	}
 
 	for currentDate := r.StartDate; currentDate.Before(r.EndDate); currentDate = currentDate.AddDate(0, 0, 1) {
-		r.Log(fmt.Sprintf("date: %s | %d -> %d", metrics.DateKey(currentDate), r.StartColumnIndex, r.EndColumnIndex))
+		logrus.Debugf("date: %s | %d -> %d", metrics.DateKey(currentDate), r.StartColumnIndex, r.EndColumnIndex)
 		dateRow := []string{metrics.DateKey(currentDate)}
 		for i := r.StartColumnIndex; i <= r.EndColumnIndex; i++ {
 			appendVal := "0"
@@ -66,7 +65,7 @@ func (r *ColumnsRunner) Values() [][]string {
 		}
 		rows = append(rows, dateRow)
 	}
-	r.Log(fmt.Sprintf("\treturning RowValues: %s", rows))
+	logrus.Debugf("\treturning RowValues: %s", rows)
 	return rows
 }
 
@@ -95,10 +94,13 @@ func (r *ColumnsRunner) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	r.Log(fmt.Sprintf("-----  Found Repos: %s", strings.Join(repos, ",")))
+	logrus.Debugf("-----  Found Repos: %s", strings.Join(repos.Names(), ","))
 
-	repoIssues := r.Client.GetIssues(ctx, r.Owner, repos, r.StartDate, r.EndDate)
-	r.Log(fmt.Sprintf("-----  Found repoIssues: %d", len(repoIssues)))
+	repoIssues, err := r.Client.GetIssues(ctx, r.Owner, repos.Names(), r.StartDate, r.EndDate)
+	if err != nil {
+		return err
+	}
+	logrus.Debugf("-----  Found repoIssues: %d", len(repoIssues))
 
 	for _, repoIssue := range repoIssues {
 		issue := metrics.Issue{
@@ -107,26 +109,21 @@ func (r *ColumnsRunner) Run(ctx context.Context) error {
 			IsFeature: metrics.HasFeatureLabel(repoIssue.Labels),
 		}
 
-		r.Log(fmt.Sprintf("Getting events for issue: %s/%d", issue.RepoName, issue.Number))
+		logrus.Debugf("Getting events for issue: %s/%d", issue.RepoName, issue.Number)
 		events, err := r.Client.GetIssueEvents(ctx, issue.Owner, issue.RepoName, issue.Number)
-		r.Log(fmt.Sprintf("\tevents found: %d", len(events)))
+		logrus.Debugf("\tevents found: %d", len(events))
 		if err != nil {
-			r.Log(fmt.Sprintf("error getting issue: %v", err))
-			continue
+			return err
 		}
 
 		r.processIssueEvents(events)
 		issues = append(issues, issue)
 	}
-
-	if r.after != nil {
-		r.after(r.Values())
-	}
 	return nil
 }
 
 func (r *ColumnsRunner) processIssueEvents(events models.IssueEvents) {
-	r.Log(fmt.Sprintf("ColumnsRunner.ProcessEvents: %d", len(events)))
+	logrus.Debugf("ColumnsRunner.ProcessEvents: %d", len(events))
 	shouldIncludeData := false
 	issueDateMap := metrics.DateColMap{}
 
@@ -143,11 +140,11 @@ func (r *ColumnsRunner) processIssueEvents(events models.IssueEvents) {
 				logrus.Warn("ProjectCard ColumnName not set.")
 				continue
 			}
-			r.Log(fmt.Sprintf("Event @ %s: created %d - %s", event.CreatedAt.String(), event.ProjectID, event.ColumnName))
+			logrus.Debugf("Event @ %s: created %d - %s", event.CreatedAt.String(), event.ProjectID, event.ColumnName)
 			fallthrough // Must fallthrough to MovedColumns for handling of case where card is dropped into column, and has not moved; expecting GetColumnName to be set
 		case models.MovedColumns:
 			eventDate := time.Date(createdAt.Year(), createdAt.Month(), createdAt.Day(), 0, 0, 0, 0, createdAt.Location())
-			r.Log(fmt.Sprintf("Event @ %s: setting column to \"%s\"", metrics.DateKey(eventDate), event.ColumnName))
+			logrus.Debugf("Event @ %s: setting column to \"%s\"", metrics.DateKey(eventDate), event.ColumnName)
 
 			// if prevDate was set, fill in dates between the prevDate and this date.
 			if !prevDate.IsZero() && prevDate.Before(eventDate) {
@@ -164,11 +161,11 @@ func (r *ColumnsRunner) processIssueEvents(events models.IssueEvents) {
 			prevDate = eventDate
 			prevColumn = event.ColumnName
 		case models.Labeled:
-			r.Log(fmt.Sprintf("Event @ %s: labeled %s", event.CreatedAt.String(), event.Label))
+			logrus.Debugf("Event @ %s: labeled %s", event.CreatedAt.String(), event.Label)
 		case models.Unlabeled:
-			r.Log(fmt.Sprintf("Event @ %s: unlabeled %s", event.CreatedAt.String(), event.Label))
+			logrus.Debugf("Event @ %s: unlabeled %s", event.CreatedAt.String(), event.Label)
 		default:
-			r.Log(fmt.Sprintf("Event @ %s: \"%s\"", event.CreatedAt.String(), event.Event))
+			logrus.Debugf("Event @ %s: \"%s\"", event.CreatedAt.String(), event.Event)
 		}
 
 		// account for issues not done yet by 'filling-in' date ColumnsRunner until the endDate
@@ -191,7 +188,7 @@ func (r *ColumnsRunner) processIssueEvents(events models.IssueEvents) {
 					r.Cols[dateKey] = map[string]int{}
 				}
 				r.Cols[dateKey][colKey] += colVal
-				r.Log(fmt.Sprintf("dateMap updates : [%s][%s]: %d", dateKey, colKey, r.Cols[dateKey][colKey]))
+				logrus.Debugf("dateMap updates : [%s][%s]: %d", dateKey, colKey, r.Cols[dateKey][colKey])
 			}
 		}
 	}

@@ -10,9 +10,9 @@ import (
 )
 
 // GetReposFromProjectColumn - returns slice of repo names gathered from the issues found in the columnID provided.
-func (m *MetricsClient) GetReposFromProjectColumn(ctx context.Context, colID int64) ([]string, error) {
-	repos := make([]string, 0)
-	repoMap := map[string]struct{}{}
+func (m *MetricsClient) GetReposFromProjectColumn(ctx context.Context, colID int64) (models.Repositories, error) {
+	repos := make(models.Repositories, 0)
+	repoMap := map[string]models.Repository{}
 	state := all
 	opt := github.ListOptions{PerPage: 100}
 	logrus.Debugf("getting repos for project: %d", colID)
@@ -30,11 +30,15 @@ func (m *MetricsClient) GetReposFromProjectColumn(ctx context.Context, colID int
 				continue
 			}
 
-			_, repo, _ := ParseIssueURL(c.GetContentURL())
+			owner, repoName, _ := ParseIssueURL(c.GetContentURL())
 
-			if _, found := repoMap[repo]; !found {
-				repoMap[repo] = struct{}{}
-				logrus.Debugf("\tadding repo %s", repo)
+			if _, found := repoMap[repoName]; !found {
+				repo := models.Repository{
+					Name:  repoName,
+					Owner: owner,
+				}
+				repoMap[repoName] = repo
+				logrus.Debugf("\tadding repo %s", repoName)
 				repos = append(repos, repo)
 			}
 		}
@@ -44,7 +48,7 @@ func (m *MetricsClient) GetReposFromProjectColumn(ctx context.Context, colID int
 		opt.Page = resp.NextPage
 	}
 
-	logrus.Infof("repos found: %s", strings.Join(repos, ","))
+	logrus.Infof("repos found: %s", strings.Join(repos.Names(), ","))
 	return repos, nil
 }
 

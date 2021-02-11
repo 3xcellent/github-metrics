@@ -1,11 +1,11 @@
 package runners
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"time"
 
-	"github.com/3xcellent/github-metrics/client"
 	"github.com/3xcellent/github-metrics/config"
 	"github.com/3xcellent/github-metrics/models"
 	"github.com/sirupsen/logrus"
@@ -14,18 +14,31 @@ import (
 type afterFunc func([][]string) error
 
 type csvRunner interface {
-	Run() error
+	Run(context.Context) error
 	RunName() string
 	Values() [][]string
 	Headers() []string
 	After(afterFunc)
 }
 
+// Client - wrapper for github api
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . Client
+type Client interface {
+	GetIssue(ctx context.Context, repoOwner, repoName string, issueNumber int) (models.Issue, error)
+	GetProject(ctx context.Context, projectID int64) (models.Project, error)
+	GetProjects(ctx context.Context, owner string) (models.Projects, error)
+	GetProjectColumns(ctx context.Context, projectID int64) (models.ProjectColumns, error)
+	GetPullRequests(ctx context.Context, repoOwner, repoName string) (models.PullRequests, error)
+	GetIssues(ctx context.Context, repoOwner string, reposNames []string, beginDate, endDate time.Time) (models.Issues, error)
+	GetIssueEvents(ctx context.Context, repoOwner, repoName string, issueNumber int) (models.IssueEvents, error)
+	GetReposFromProjectColumn(ctx context.Context, columnID int64) (models.Repositories, error)
+}
+
 // Runner - provides a metricsClient, and must honor the CSVRunner interface to allow
 // running metrics and running the afterFunc if set
 type Runner struct {
 	csvRunner
-	Client  client.Client
+	Client  Client
 	after   afterFunc
 	LogFunc func(args ...interface{})
 
@@ -51,7 +64,7 @@ func (r *Runner) After(afterFunc func([][]string) error) {
 }
 
 // NewBaseRunner - creates the base runner from the config and set the client client
-func NewBaseRunner(metricsCfg config.RunConfig, client client.Client) *Runner {
+func NewBaseRunner(metricsCfg config.RunConfig, client Client) *Runner {
 	logrus.Debugf("initializing new runner with %#v:", metricsCfg)
 	return &Runner{
 		Client:      client,
@@ -65,12 +78,15 @@ func NewBaseRunner(metricsCfg config.RunConfig, client client.Client) *Runner {
 	}
 }
 
-var errEmptyProjectColumns = errors.New("cannot set indexes: ProjectColumns is empty")
+// errors
+var (
+	ErrEmptyProjectColumns = errors.New("cannot set indexes: ProjectColumns is empty")
+)
 
 // SetColumnParams - sets runner Start/EmdColumnIndec based ProjectColumns and runner.StartColumn/EndColumn values (from RunConfig)
 func (r *Runner) setColumnParams(projectColumns models.ProjectColumns) error {
 	if len(projectColumns) == 0 {
-		return errEmptyProjectColumns
+		return ErrEmptyProjectColumns
 	}
 	colNames := make([]string, 0)
 	for i, col := range projectColumns {
@@ -93,14 +109,4 @@ func (r *Runner) setColumnParams(projectColumns models.ProjectColumns) error {
 	r.ColumnNames = colNames[r.StartColumnIndex : r.EndColumnIndex+1]
 	logrus.Debugf("\tcalculating for columns [%d:%d]: %s", r.StartColumnIndex, r.EndColumnIndex, strings.Join(r.ColumnNames, ","))
 	return nil
-}
-
-// Log - uses the provided logFunc for log text
-func (r *Runner) Log(values ...interface{}) {
-	if r.LogFunc == nil {
-		return
-	}
-	for _, value := range values {
-		r.LogFunc(value.(string))
-	}
 }

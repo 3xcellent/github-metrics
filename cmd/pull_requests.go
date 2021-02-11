@@ -58,7 +58,7 @@ func pullRequests(c *cobra.Command, args []string) error {
 	if len(repoNames) > 0 {
 		repoList = strings.Split(repoNames, ",")
 	} else {
-		repoList, err = ghClient.GetRepos(c.Context(), projectColumns[len(projectColumns)-1].ID)
+		repoList, err = ghClient.GetReposFromProjectColumn(c.Context(), projectColumns[len(projectColumns)-1].ID)
 		if err != nil {
 			return err
 		}

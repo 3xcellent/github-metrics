@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/3xcellent/github-metrics/models"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
