@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"time"
 
 	"github.com/3xcellent/github-metrics/config"
+	"github.com/3xcellent/github-metrics/models"
 	"github.com/google/go-github/v32/github"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
@@ -19,6 +21,19 @@ const all = "all"
 // MetricsClient provides access to user datea through an authenticated github.Client connection
 type MetricsClient struct {
 	c *github.Client
+}
+
+// Client - wrapper for github api
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . Client
+type Client interface {
+	GetIssue(ctx context.Context, repoOwner, repoName string, issueNumber int) (models.Issue, error)
+	GetProject(ctx context.Context, projectID int64) (models.Project, error)
+	GetProjects(ctx context.Context, owner string) (models.Projects, error)
+	GetProjectColumns(ctx context.Context, projectID int64) (models.ProjectColumns, error)
+	GetPullRequests(ctx context.Context, repoOwner, repoName string) (models.PullRequests, error)
+	GetIssues(ctx context.Context, repoOwner string, reposNames []string, beginDate, endDate time.Time) models.Issues
+	GetIssueEvents(ctx context.Context, repoOwner, repoName string, issueNumber int) (models.IssueEvents, error)
+	GetRepos(ctx context.Context, columnID int64) ([]string, error)
 }
 
 func authenticateHTTPClient(ctx context.Context, token string) *http.Client {

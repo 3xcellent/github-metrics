@@ -11,7 +11,6 @@ import (
 )
 
 func TestIssueMetric_setColumnDates(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
 	t.Run("events with consecutive column progression", func(t *testing.T) {
 		dates := newDates(4)
 		cols := newProjectColumns(4)

@@ -1,10 +1,10 @@
 package runners
 
 import (
-	"context"
 	"strings"
 	"time"
 
+	"github.com/3xcellent/github-metrics/client"
 	"github.com/3xcellent/github-metrics/config"
 	"github.com/3xcellent/github-metrics/models"
 	"github.com/sirupsen/logrus"
@@ -24,7 +24,7 @@ type csvRunner interface {
 // running metrics and running the afterFunc if set
 type Runner struct {
 	csvRunner
-	Client  Client
+	Client  client.Client
 	after   afterFunc
 	LogFunc func(args ...interface{})
 
@@ -49,20 +49,8 @@ func (r *Runner) After(afterFunc func([][]string) error) {
 	r.after = afterFunc
 }
 
-// Client - wrapper for github api
-type Client interface {
-	GetIssue(ctx context.Context, repoOwner, repoName string, issueNumber int) (models.Issue, error)
-	GetProject(ctx context.Context, projectID int64) (models.Project, error)
-	GetProjects(ctx context.Context, owner string) (models.Projects, error)
-	GetProjectColumns(ctx context.Context, projectID int64) (models.ProjectColumns, error)
-	GetPullRequests(ctx context.Context, repoOwner, repoName string) (models.PullRequests, error)
-	GetIssues(ctx context.Context, repoOwner string, reposNames []string, beginDate, endDate time.Time) models.Issues
-	GetIssueEvents(ctx context.Context, repoOwner, repoName string, issueNumber int) (models.IssueEvents, error)
-	GetRepos(ctx context.Context, columnID int64) ([]string, error)
-}
-
 // NewBaseRunner - creates the base runner from the config and set the client client
-func NewBaseRunner(metricsCfg config.RunConfig, client Client) *Runner {
+func NewBaseRunner(metricsCfg config.RunConfig, client client.Client) *Runner {
 	logrus.Debugf("initializing new runner with %#v:", metricsCfg)
 	return &Runner{
 		Client:      client,

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/3xcellent/github-metrics/client"
 	"github.com/3xcellent/github-metrics/config"
 	"github.com/3xcellent/github-metrics/metrics"
 	"github.com/3xcellent/github-metrics/models"
@@ -20,7 +21,7 @@ type ColumnsRunner struct {
 }
 
 // NewColumnsRunner - returns metric runner for running the columns metric, requires a project id and client
-func NewColumnsRunner(metricsCfg config.RunConfig, client Client) ColumnsRunner {
+func NewColumnsRunner(metricsCfg config.RunConfig, client client.Client) ColumnsRunner {
 	m := ColumnsRunner{
 		Runner: NewBaseRunner(metricsCfg, client),
 		Cols:   metrics.NewDateColumnMap(metricsCfg.StartDate, metricsCfg.EndDate),
