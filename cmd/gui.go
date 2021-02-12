@@ -12,14 +12,13 @@ import (
 )
 
 var guiCmd = &cobra.Command{
-	Use:   "gui",
+	Use:   "gui [runConfig]",
 	Short: "starts the gui",
 	Long:  "starts the gui interface; currently in alpha",
 	RunE:  startGUI,
 }
 
 func startGUI(c *cobra.Command, args []string) error {
-
 	ctx := context.Background()
 
 	var err error
@@ -29,8 +28,21 @@ func startGUI(c *cobra.Command, args []string) error {
 			panic(err)
 		}
 	}
+
+	if len(args) > 0 {
+		runConfig, err := Config.GetRunConfig(args[0])
+		if err != nil {
+			log.Fatal(err)
+		}
+		Config.ProjectID = runConfig.ProjectID
+		if runConfig.Owner != "" {
+			Config.Owner = runConfig.Owner
+		}
+
+	}
+
 	go func() {
-		if err := gui.Start(ctx, Config.API); err != nil {
+		if err := gui.Start(ctx, Config); err != nil {
 			log.Fatal(err)
 		}
 		os.Exit(0)

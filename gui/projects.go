@@ -42,7 +42,6 @@ func projectOptions(th *material.Theme, input *widget.Enum, projects models.Proj
 
 // LayoutProjectsPage - layout of available projects
 func LayoutProjectsPage(gtx C) D {
-
 	if !hasLoadedProjects {
 		if !isLoadingProjects {
 			isLoadingProjects = true

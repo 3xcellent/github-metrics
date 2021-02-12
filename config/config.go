@@ -25,6 +25,7 @@ type AppConfig struct {
 	EndColumn   string
 	// StartColumnIndex int
 	// EndColumnIndex   int
+	ProjectID   int64
 	IssueNumber int
 	RepoName    string
 	Owner       string

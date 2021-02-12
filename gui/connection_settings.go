@@ -36,7 +36,10 @@ func LayoutConnectionSettings(gtx C) D {
 		State.HasValidatedConnection = true
 
 		logrus.Debugf("updated connection settings")
-		nav.SetNavDestination(ProjectsPage)
+		if State.SelectedProjectID == 0 || State.SelectedProjectName == "" {
+			nav.SetNavDestination(ProjectsPage)
+		}
+		nav.SetNavDestination(MainPage)
 	}
 	return layout.Flex{
 		Alignment: layout.Middle,

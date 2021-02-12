@@ -180,11 +180,11 @@ func debug(args ...interface{}) {
 }
 
 // Start - starts gui
-func Start(ctx context.Context, apiConfig config.APIConfig) error {
+func Start(ctx context.Context, cfg *config.AppConfig) error {
 	w := app.NewWindow()
 	// initialize state and set github client
 	State = NewState(ctx)
-	err := State.SetClient(apiConfig)
+	err := State.SetClient(cfg.API)
 	if err != nil {
 		panic(err)
 	}
@@ -195,6 +195,16 @@ func Start(ctx context.Context, apiConfig config.APIConfig) error {
 	ownerInput.SetText(State.APIConfig.Owner)
 	baseURLInput.SetText(State.APIConfig.BaseURL)
 	uploadURLInput.SetText(State.APIConfig.UploadURL)
+	if cfg.ProjectID != 0 {
+		State.SelectedProjectID = cfg.ProjectID
+
+		project, err := State.Client.GetProject(ctx, State.SelectedProjectID)
+		if err != nil {
+			panic(err)
+		}
+
+		State.SelectedProjectName = project.Name
+	}
 
 	var ops op.Ops
 
@@ -260,7 +270,10 @@ func Start(ctx context.Context, apiConfig config.APIConfig) error {
 						debug(fmt.Sprintf("columns: %s - %d / %d\n", selectedCommand, selectedMonth, selectedYear))
 						selectedProject, err := availableProjects.GetProject(State.SelectedProjectID)
 						if err != nil {
-							panic(err)
+							selectedProject, err = State.Client.GetProject(ctx, State.SelectedProjectID)
+							if err != nil {
+								panic(err)
+							}
 						}
 
 						runCfg := selectedProject.RunConfig()
