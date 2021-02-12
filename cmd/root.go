@@ -60,6 +60,7 @@ func init() {
 	viper.BindPFlag("issueNumber", MetricsCommand.PersistentFlags().Lookup("issueNumber"))
 
 	MetricsCommand.AddCommand(
+		guiCmd,
 		orgsCommand,
 		projectCommand,
 		projectsCommand,

@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"errors"
-	"net/http"
 	"regexp"
 	"strconv"
 
@@ -21,60 +20,38 @@ type MetricsClient struct {
 	c *github.Client
 }
 
-func authenticateHTTPClient(ctx context.Context, token string) *http.Client {
-	return oauth2.NewClient(ctx, oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token}))
-}
+const (
+	ErrAccessTokenNotSet = "github access token not set"
+)
 
-// New - returns a MetricsClient using the correct github.Client based on settings provided in config.APIConfig
+// New will return a MetricsClient using the token provided in config.APIConfig.  For enterprise
+// servers, provide the BaseURL (UploadURL defaults to default for BaseURL when blank)
 func New(ctx context.Context, config config.APIConfig) (*MetricsClient, error) {
-	if config.BaseURL != "" {
-		logrus.Debugf("config.BaseURL is set, using enterprise client: %s", config.BaseURL)
-		return enterpriseClient(ctx, config)
-	}
-	return defaultClient(ctx, config)
-}
-func defaultClient(ctx context.Context, config config.APIConfig) (*MetricsClient, error) {
 	token := config.Token
 	if token == "" {
-		return nil, errors.New("github access token not set")
-	}
-	logrus.Debugf("creating new client with token: %s", token)
-
-	client := github.NewClient(authenticateHTTPClient(ctx, token))
-
-	return &MetricsClient{
-		c: client,
-	}, nil
-}
-
-func enterpriseClient(ctx context.Context, config config.APIConfig) (*MetricsClient, error) {
-	baseURL := config.BaseURL
-	if baseURL == "" {
-		return nil, errors.New("github baseURL must be set")
+		return nil, errors.New(ErrAccessTokenNotSet)
 	}
 
-	uploadURL := config.UploadURL
-	if len(uploadURL) == 0 {
-		uploadURL = baseURL
+	authenticatedClient := oauth2.NewClient(ctx, oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token}))
+	if config.BaseURL == "" {
+		logrus.Debugf("creating new client with token: %s", token)
+		return &MetricsClient{c: github.NewClient(authenticatedClient)}, nil
 	}
 
-	token := config.Token
-	if token == "" {
-		return nil, errors.New("github access token not set")
+	if config.UploadURL == "" {
+		config.UploadURL = config.BaseURL
 	}
 
-	client, err := github.NewEnterpriseClient(
-		baseURL,
-		uploadURL,
-		authenticateHTTPClient(ctx, token),
-	)
+	logrus.Debug("using enterprise client")
+	logrus.Debugf("\tToken: %s", token)
+	logrus.Debugf("\tBaseURL: %s", config.BaseURL)
+	logrus.Debugf("\tUploadURL: %s", config.UploadURL)
+	client, err := github.NewEnterpriseClient(config.BaseURL, config.UploadURL, authenticatedClient)
 	if err != nil {
 		return nil, err
 	}
 
-	return &MetricsClient{
-		c: client,
-	}, nil
+	return &MetricsClient{c: client}, nil
 }
 
 // Issue URLs look like: https://api.github.com/repos/3xcellent/github-metrics/issues/2

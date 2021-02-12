@@ -179,22 +179,12 @@ func debug(args ...interface{}) {
 	outputTextField.SetText(outputText)
 }
 
-// Loop - main gui loop
-func Loop(w *app.Window) error {
-
-	ctx := context.Background()
-
-	var err error
-	if Config == nil {
-		Config, err = config.NewDefaultConfig()
-		if err != nil {
-			panic(err)
-		}
-	}
-
+// Start - starts gui
+func Start(ctx context.Context, apiConfig config.APIConfig) error {
+	w := app.NewWindow()
 	// initialize state and github client
 	State = NewState(ctx)
-	err = State.SetClient(Config.API)
+	err := State.SetClient(apiConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -279,7 +269,7 @@ func Loop(w *app.Window) error {
 
 						logrus.Debugf("runCfg: %#v", runCfg)
 
-						ghClient, err := client.New(ctx, Config.API)
+						ghClient, err := client.New(ctx, State.APIConfig)
 						if err != nil {
 							panic(err)
 						}

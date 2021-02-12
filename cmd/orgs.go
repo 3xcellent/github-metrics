@@ -5,7 +5,6 @@ import (
 
 	"github.com/3xcellent/github-metrics/client"
 	"github.com/3xcellent/github-metrics/config"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -24,8 +23,6 @@ func getOrgs(c *cobra.Command, args []string) error {
 			return err
 		}
 	}
-
-	logrus.Debugf("getting organizations for owner: %s", Config.Owner)
 
 	ctx := context.Background()
 	ghClient, err := client.New(ctx, Config.API)
