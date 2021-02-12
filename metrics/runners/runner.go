@@ -110,3 +110,4 @@ func (r *Runner) setColumnParams(projectColumns models.ProjectColumns) error {
 	logrus.Debugf("\tcalculating for columns [%d:%d]: %s", r.StartColumnIndex, r.EndColumnIndex, strings.Join(r.ColumnNames, ","))
 	return nil
 }
+

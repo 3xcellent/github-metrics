@@ -182,7 +182,7 @@ func debug(args ...interface{}) {
 // Start - starts gui
 func Start(ctx context.Context, apiConfig config.APIConfig) error {
 	w := app.NewWindow()
-	// initialize state and github client
+	// initialize state and set github client
 	State = NewState(ctx)
 	err := State.SetClient(apiConfig)
 	if err != nil {

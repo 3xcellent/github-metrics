@@ -8,18 +8,20 @@ import (
 	"time"
 
 	"github.com/3xcellent/github-metrics/config"
-	"github.com/3xcellent/github-metrics/metrics"
 	"github.com/3xcellent/github-metrics/metrics/runners"
 	"github.com/3xcellent/github-metrics/metrics/runners/runnersfakes"
 	"github.com/3xcellent/github-metrics/models"
+	"github.com/3xcellent/github-metrics/tools/testhelpers"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 var (
 	testCtx, testCtxCancelFunc = context.WithCancel(context.Background())
-	numDays                    = rand.Intn(100)
-	startDate                  = time.Date(2001, 2, 3, 0, 0, 0, 0, time.Now().Location()) // if not midnight, adds a day
+	numDays                    = rand.Intn(30) + 2
+	numColumns                 = rand.Intn(10) + 2
+	startDate                  = time.Date(2001, 2, 3, 0, 0, 0, 0, time.Now().Location()) // must be midnight
 	endDate                    = startDate.AddDate(0, 0, numDays)
 	projectID                  = int64(123)
 
@@ -35,11 +37,8 @@ var (
 		Name: projectName,
 		ID:   projectID,
 	}
-	projectcolumns = models.ProjectColumns{
-		{Name: "Column 1", ID: 1},
-		{Name: "Column 2", ID: 2},
-	}
-	repos = models.Repositories{
+	projectColumns = testhelpers.NewProjectColumns(numColumns)
+	repos          = models.Repositories{
 		{Name: "repo 1", Owner: project.Owner, ID: 1, URL: "some url"},
 		{Name: "repo 2", Owner: project.Owner, ID: 2, URL: "some url"},
 	}
@@ -47,7 +46,8 @@ var (
 		{Owner: repos[0].Owner, RepoName: repos[0].Name, Number: rand.Intn(100)},
 	}
 	issueEvents = models.IssueEvents{
-		{ProjectID: projectID, Type: models.AddedToProject, ColumnName: projectcolumns[0].Name, CreatedAt: startDate.AddDate(0, 0, 1)},
+		{ProjectID: projectID, Type: models.AddedToProject, ColumnName: projectColumns[0].Name, CreatedAt: startDate.AddDate(0, 0, 1)},
+		{ProjectID: projectID, Type: models.MovedColumns, ColumnName: projectColumns[1].Name, CreatedAt: startDate.AddDate(0, 0, 2)},
 	}
 )
 
@@ -83,6 +83,35 @@ func TestColumnsRunner_RunName(t *testing.T) {
 		expectedRunName := "Some_Project_Name_columns_2001-02.csv"
 		assert.Equal(t, expectedRunName, object.RunName())
 	})
+}
+
+func TestColumnsRunner_Headers(t *testing.T) {
+	fakeClient := new(runnersfakes.FakeClient)
+	runConfig := config.RunConfig{
+		ProjectID: 42,
+		StartDate: startDate,
+		EndDate:   startDate.AddDate(0, 0, 30),
+	}
+	object := runners.NewColumnsRunner(runConfig, fakeClient)
+	fakeClient.GetProjectReturns(models.Project{Name: projectName}, nil)
+	fakeClient.GetProjectColumnsReturns(projectColumns, nil)
+	fakeClient.GetReposFromProjectColumnReturns(repos, nil)
+	fakeClient.GetIssuesReturns(issues, nil)
+	fakeClient.GetIssueEventsReturns(issueEvents, nil)
+
+	actualErr := object.Run(testCtx)
+	assert.NoError(t, actualErr)
+
+	t.Run("returns expected list of header column names", func(t *testing.T) {
+		expectedHeaders := []string{"Day"}
+		expectedHeaders = append(expectedHeaders, object.ColumnNames...)
+		assert.Equal(t, expectedHeaders, object.Headers())
+	})
+	testCtxCancelFunc()
+}
+
+func TestColumnsRunner_Values(t *testing.T) {
+
 }
 
 func TestColumnsRunner_Run_Error(t *testing.T) {
@@ -161,7 +190,7 @@ func TestColumnsRunner_Run_Error(t *testing.T) {
 
 		t.Run("client", func(t *testing.T) {
 			fakeClient.GetProjectReturns(project, nil)
-			fakeClient.GetProjectColumnsReturns(projectcolumns, nil)
+			fakeClient.GetProjectColumnsReturns(projectColumns, nil)
 
 			reposErr := errors.New("repos error")
 			fakeClient.GetReposFromProjectColumnReturns(nil, reposErr)
@@ -190,7 +219,7 @@ func TestColumnsRunner_Run_Error(t *testing.T) {
 
 		t.Run("client", func(t *testing.T) {
 			fakeClient.GetProjectReturns(project, nil)
-			fakeClient.GetProjectColumnsReturns(projectcolumns, nil)
+			fakeClient.GetProjectColumnsReturns(projectColumns, nil)
 
 			fakeClient.GetReposFromProjectColumnReturns(repos, nil)
 
@@ -226,7 +255,7 @@ func TestColumnsRunner_Run_Error(t *testing.T) {
 
 		t.Run("client", func(t *testing.T) {
 			fakeClient.GetProjectReturns(project, nil)
-			fakeClient.GetProjectColumnsReturns(projectcolumns, nil)
+			fakeClient.GetProjectColumnsReturns(projectColumns, nil)
 			fakeClient.GetReposFromProjectColumnReturns(repos, nil)
 			fakeClient.GetIssuesReturns(issues, nil)
 
@@ -253,30 +282,38 @@ func TestColumnsRunner_Run_Error(t *testing.T) {
 	testCtxCancelFunc()
 }
 
-func TestColumnsRunner_Run_NoError(t *testing.T) {
+func TestColumnsRunner_Run(t *testing.T) {
+	logrus.SetLevel(logrus.DebugLevel)
 	fakeClient := new(runnersfakes.FakeClient)
 	runConfig := config.RunConfig{
 		ProjectID: 42,
 		StartDate: startDate,
-		EndDate:   startDate.AddDate(0, 0, 30),
+		EndDate:   startDate.AddDate(0, 0, numDays),
 	}
 	object := runners.NewColumnsRunner(runConfig, fakeClient)
 	fakeClient.GetProjectReturns(models.Project{Name: projectName}, nil)
-	fakeClient.GetProjectColumnsReturns(projectcolumns, nil)
+	fakeClient.GetProjectColumnsReturns(projectColumns, nil)
 	fakeClient.GetReposFromProjectColumnReturns(repos, nil)
 	fakeClient.GetIssuesReturns(issues, nil)
 	fakeClient.GetIssueEventsReturns(issueEvents, nil)
 
-	actualErr := object.Run(testCtx)
-	assert.NoError(t, actualErr)
+	err := object.Run(testCtx)
+
+	t.Run("has correct start date and end dates", func(t *testing.T) {
+		assert.Equal(t, startDate, object.StartDate)
+		assert.Equal(t, endDate, object.EndDate)
+	})
+
+	t.Run("does not return error", func(t *testing.T) {
+		require.NoError(t, err)
+	})
 
 	t.Run("assigns project name to runner", func(t *testing.T) {
 		assert.Equal(t, projectName, object.ProjectName)
 	})
 
-	t.Run("sets expected DateColMap", func(t *testing.T) {
-		expectedDateColMap := metrics.DateColMap{}
-		assert.Equal(t, expectedDateColMap, object.Cols)
+	t.Run("sets DateColMap", func(t *testing.T) {
+		assert.Len(t, object.Cols, numDays)
 	})
 	testCtxCancelFunc()
 }

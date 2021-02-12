@@ -39,6 +39,13 @@ func (r *ColumnsRunner) RunName() string {
 	)
 }
 
+// Headers returns list of headers column names
+func (r *ColumnsRunner) Headers() []string {
+	headers := []string{"Day"}
+	headers = append(headers, r.ColumnNames...)
+	return headers
+}
+
 // Values - returns CSV data (rows and cols) as two-deimensional slice [][]string
 // * headers with be included unless ColumnsRunner.NoHeaders is true
 func (r *ColumnsRunner) Values() [][]string {
@@ -46,9 +53,7 @@ func (r *ColumnsRunner) Values() [][]string {
 
 	if !r.NoHeaders {
 		logrus.Debugf("option: headers")
-		headers := []string{"Day"}
-		headers = append(headers, r.ColumnNames...)
-		rows = append(rows, headers)
+		rows = append(rows, r.Headers())
 	}
 
 	for currentDate := r.StartDate; currentDate.Before(r.EndDate); currentDate = currentDate.AddDate(0, 0, 1) {

@@ -1,18 +1,17 @@
 package metrics
 
 import (
-	"fmt"
 	"testing"
-	"time"
 
 	"github.com/3xcellent/github-metrics/models"
+	"github.com/3xcellent/github-metrics/tools/testhelpers"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestIssueMetric_setColumnDates(t *testing.T) {
 	t.Run("events with consecutive column progression", func(t *testing.T) {
-		dates := newDates(4)
-		cols := newProjectColumns(4)
+		dates := testhelpers.NewDates(4)
+		cols := testhelpers.NewProjectColumns(4)
 
 		events := models.IssueEvents{
 			{Type: models.MovedColumns, CreatedAt: dates[0], ColumnName: cols[0].Name},
@@ -22,7 +21,7 @@ func TestIssueMetric_setColumnDates(t *testing.T) {
 		}
 
 		issue := Issue{
-			Issue:            newIssue(),
+			Issue:            testhelpers.NewIssue(),
 			ProjectID:        42,
 			StartColumnIndex: 0,
 			EndColumnIndex:   3,
@@ -50,8 +49,8 @@ func TestIssueMetric_setColumnDates(t *testing.T) {
 		})
 	})
 	t.Run("events with the previous column index greater than the new column", func(t *testing.T) {
-		dates := newDates(8)
-		cols := newProjectColumns(4)
+		dates := testhelpers.NewDates(8)
+		cols := testhelpers.NewProjectColumns(4)
 
 		events := models.IssueEvents{
 			{Type: models.MovedColumns, CreatedAt: dates[0], ColumnName: cols[0].Name},
@@ -65,7 +64,7 @@ func TestIssueMetric_setColumnDates(t *testing.T) {
 		}
 
 		issue := Issue{
-			Issue:            newIssue(),
+			Issue:            testhelpers.NewIssue(),
 			StartColumnIndex: 0,
 			EndColumnIndex:   3,
 			ColumnDates: IssuesDateColumns{
@@ -93,11 +92,11 @@ func TestIssueMetric_setColumnDates(t *testing.T) {
 		})
 	})
 	t.Run("events with columns not in list of project columns", func(t *testing.T) {
-		dates := newDates(4)
-		cols := newProjectColumns(4)
+		dates := testhelpers.NewDates(4)
+		cols := testhelpers.NewProjectColumns(4)
 
 		issue := Issue{
-			Issue:            newIssue(),
+			Issue:            testhelpers.NewIssue(),
 			ProjectID:        42,
 			StartColumnIndex: 0,
 			EndColumnIndex:   2,
@@ -134,10 +133,10 @@ func TestIssueMetric_setColumnDates(t *testing.T) {
 }
 func TestIssueMetric_setEmptyColumnDates(t *testing.T) {
 	t.Run("ColumnDates with empty dates", func(t *testing.T) {
-		dates := newDates(4)
-		cols := newProjectColumns(4)
+		dates := testhelpers.NewDates(4)
+		cols := testhelpers.NewProjectColumns(4)
 		issue := Issue{
-			Issue:            newIssue(),
+			Issue:            testhelpers.NewIssue(),
 			ProjectID:        42,
 			StartColumnIndex: 0,
 			EndColumnIndex:   3,
@@ -165,11 +164,11 @@ func TestIssueMetric_setEmptyColumnDates(t *testing.T) {
 	})
 
 	t.Run("when last ColumnDate not set", func(t *testing.T) {
-		dates := newDates(4)
-		cols := newProjectColumns(4)
+		dates := testhelpers.NewDates(4)
+		cols := testhelpers.NewProjectColumns(4)
 
 		issue := Issue{
-			Issue:            newIssue(),
+			Issue:            testhelpers.NewIssue(),
 			ProjectID:        42,
 			StartColumnIndex: 0,
 			EndColumnIndex:   3,
@@ -203,30 +202,6 @@ func TestIssueMetric_setEmptyColumnDates(t *testing.T) {
 		})
 	})
 
-}
-
-func newIssue() *models.Issue {
-	return &models.Issue{}
-}
-
-func newDates(num int) []time.Time {
-	dates := make([]time.Time, 0, num)
-	for i := 0; i < num; i++ {
-		if i == 0 {
-			dates = append(dates, time.Date(2001, 2, 3, 4, 5, 6, 7, time.Now().Location()))
-		} else {
-			dates = append(dates, dates[0].AddDate(0, 0, i))
-		}
-	}
-	return dates
-}
-
-func newProjectColumns(num int) models.ProjectColumns {
-	cols := make(models.ProjectColumns, 0, num)
-	for i := 0; i < num; i++ {
-		cols = append(cols, models.ProjectColumn{Name: fmt.Sprintf("col %d", i), ID: int64(i), Index: i})
-	}
-	return cols
 }
 
 func assertColumnDates(t *testing.T, expected, actual IssuesDateColumns) {
