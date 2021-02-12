@@ -20,6 +20,7 @@ type MetricsClient struct {
 	c *github.Client
 }
 
+// errors
 const (
 	ErrAccessTokenNotSet = "github access token not set"
 )

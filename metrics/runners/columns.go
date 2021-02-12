@@ -76,45 +76,20 @@ func (r *ColumnsRunner) Values() [][]string {
 
 // Run - Runs Columns Mwtric (gathers data from github and processes repos, issues, and events)
 func (r *ColumnsRunner) Run(ctx context.Context) error {
+	ghIssues, _, err := r.GetIssuesAndColumns(ctx)
+	if err != nil {
+		return err
+	}
+
 	var issues metrics.Issues
-
-	project, err := r.Client.GetProject(ctx, r.ProjectID)
-	if err != nil {
-		return err
-	}
-	r.ProjectName = project.Name
-
-	projectColumns, err := r.Client.GetProjectColumns(ctx, r.ProjectID)
-	if err != nil {
-		return err
-	}
-
-	err = r.setColumnParams(projectColumns)
-	if err != nil {
-		return err
-	}
-
-	logrus.Debugf("getting repos: %#v", r)
-	repos, err := r.Client.GetReposFromProjectColumn(ctx, r.EndColumnID)
-	if err != nil {
-		return err
-	}
-	logrus.Debugf("-----  Found Repos: %s", strings.Join(repos.Names(), ","))
-
-	repoIssues, err := r.Client.GetIssues(ctx, r.Owner, repos.Names(), r.StartDate, r.EndDate)
-	if err != nil {
-		return err
-	}
-	logrus.Debugf("-----  Found repoIssues: %d", len(repoIssues))
-
-	for _, repoIssue := range repoIssues {
+	for _, ghIssue := range ghIssues {
 		issue := metrics.Issue{
-			Issue:     &repoIssue,
-			Type:      metrics.Type(repoIssue.Labels),
-			IsFeature: metrics.HasFeatureLabel(repoIssue.Labels),
+			Issue:     &ghIssue,
+			Type:      metrics.Type(ghIssue.Labels),
+			IsFeature: metrics.HasFeatureLabel(ghIssue.Labels),
 		}
 
-		logrus.Debugf("Getting events for issue: %s/%d", issue.RepoName, issue.Number)
+		logrus.Debugf("getting events for issue: %s/%d", issue.RepoName, issue.Number)
 		events, err := r.Client.GetIssueEvents(ctx, issue.Owner, issue.RepoName, issue.Number)
 		logrus.Debugf("\tevents found: %d", len(events))
 		if err != nil {

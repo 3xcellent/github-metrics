@@ -64,18 +64,7 @@ func (r *IssuesRunner) Values() [][]string {
 
 // Run - Runs Columns Mwtric (gathers data from github and processes repos, issues, and events)
 func (r *IssuesRunner) Run(ctx context.Context) error {
-	project, err := r.Client.GetProject(ctx, r.ProjectID)
-	if err != nil {
-		return err
-	}
-	r.ProjectName = project.Name
-
-	projectColumns, err := r.Client.GetProjectColumns(ctx, r.ProjectID)
-	if err != nil {
-		return err
-	}
-
-	err = r.setColumnParams(projectColumns)
+	ghIssues, projectColumns, err := r.GetIssuesAndColumns(ctx)
 	if err != nil {
 		return err
 	}
@@ -84,46 +73,15 @@ func (r *IssuesRunner) Run(ctx context.Context) error {
 	for _, col := range projectColumns {
 		dateCols = append(dateCols, metrics.IssuesDateColumn{ProjectColumn: &models.ProjectColumn{Name: col.Name, ID: col.ID}})
 	}
-	logrus.Debugf("dateCols: %#v", dateCols)
 
-	r.Issues = metrics.Issues{}
-	if r.IssueNumber != 0 && r.RepoName != "" {
-		ghIssue, err := r.Client.GetIssue(ctx, r.Owner, r.RepoName, r.IssueNumber)
-		if err != nil {
-			return err
-		}
+	logrus.Debugf("dateCols: %#v", dateCols)
+	for _, ghIssue := range ghIssues {
 		metricsIssue, err := r.newMetricsIssue(ctx, ghIssue, dateCols)
 		if err != nil {
 			return err
 		}
+		metricsIssue.ProcessIssueEvents()
 		r.Issues = append(r.Issues, metricsIssue)
-	} else {
-		repos, err := r.Client.GetReposFromProjectColumn(ctx, projectColumns[len(projectColumns)-1].ID)
-		if err != nil {
-			return err
-		}
-
-		ghIssues, err := r.Client.GetIssues(ctx, r.Owner, repos.Names(), r.StartDate, r.EndDate)
-		if err != nil {
-			return err
-		}
-
-		for _, ghIssue := range ghIssues {
-			metricsIssue, err := r.newMetricsIssue(ctx, ghIssue, dateCols)
-			if err != nil {
-				return err
-			}
-
-			r.Issues = append(r.Issues, metricsIssue)
-		}
-	}
-
-	for _, issue := range r.Issues {
-		events, err := r.Client.GetIssueEvents(ctx, r.Owner, issue.RepoName, issue.Number)
-		if err != nil {
-			return err
-		}
-		issue.ProcessIssueEvents(events)
 	}
 
 	logrus.Debugf("done processing %d issues", len(r.Issues))

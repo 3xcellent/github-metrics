@@ -136,14 +136,12 @@ func HasFeatureLabel(labels []string) bool {
 	return false
 }
 
-func (i *Issue) ProcessIssueEvents(ghEvents models.IssueEvents) {
+// ProcessIssueEvents sets column dates based on its events
+func (i *Issue) ProcessIssueEvents() {
 	logrus.Debugf("Events: %s/%s/%d - %s", i.Owner, i.RepoName, i.Number, i.Title)
-
-	if len(ghEvents) == 0 {
+	if len(i.Events) == 0 {
 		return
 	}
-	i.Events = ghEvents
-
 	i.setColumnDates()
 	i.setEmptyColumnDates()
 }

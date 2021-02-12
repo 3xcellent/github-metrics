@@ -1,7 +1,6 @@
 package models
 
 import (
-	"strings"
 	"time"
 )
 
@@ -36,8 +35,3 @@ const (
 	Unlabeled      IssueEventType = "UNLABELED"
 	AddedToProject IssueEventType = "ADDED_TO_PROJECT"
 )
-
-// ToIssueEventType - returns IssueEventType from string
-func ToIssueEventType(s string) IssueEventType {
-	return IssueEventType(strings.ToUpper(s))
-}

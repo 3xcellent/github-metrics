@@ -111,3 +111,47 @@ func (r *Runner) setColumnParams(projectColumns models.ProjectColumns) error {
 	return nil
 }
 
+// GetIssuesAndColumns returns the issues and columns for a project
+func (r *Runner) GetIssuesAndColumns(ctx context.Context) (models.Issues, models.ProjectColumns, error) {
+	var issues models.Issues
+
+	project, err := r.Client.GetProject(ctx, r.ProjectID)
+	if err != nil {
+		return nil, nil, err
+	}
+	r.ProjectName = project.Name
+
+	projectColumns, err := r.Client.GetProjectColumns(ctx, r.ProjectID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = r.setColumnParams(projectColumns)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	logrus.Debugf("getting repos: %#v", r)
+	repos, err := r.Client.GetReposFromProjectColumn(ctx, r.EndColumnID)
+	if err != nil {
+		return nil, nil, err
+	}
+	logrus.Debugf("\trepos found: %s", strings.Join(repos.Names(), ","))
+
+	repoIssues, err := r.Client.GetIssues(ctx, r.Owner, repos.Names(), r.StartDate, r.EndDate)
+	if err != nil {
+		return nil, nil, err
+	}
+	logrus.Debugf("\ttotal repo issues found: %d", len(repoIssues))
+
+	for _, issue := range repoIssues {
+		issue.Events, err = r.Client.GetIssueEvents(ctx, issue.Owner, issue.RepoName, issue.Number)
+		logrus.Debugf("\t %d events for: %s/%d", len(issue.Events), issue.RepoName, issue.Number)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		issues = append(issues, issue)
+	}
+	return issues, projectColumns, nil
+}
