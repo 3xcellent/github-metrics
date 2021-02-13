@@ -6,7 +6,6 @@ import (
 	"image/color"
 	"log"
 	"strconv"
-	"strings"
 	"time"
 
 	"gioui.org/app"
@@ -20,7 +19,6 @@ import (
 	"gioui.org/widget/material"
 	"git.sr.ht/~whereswaldon/materials"
 	"github.com/3xcellent/github-metrics/config"
-	"github.com/3xcellent/github-metrics/metrics/runners"
 	"github.com/3xcellent/github-metrics/models"
 	"github.com/sirupsen/logrus"
 )
@@ -161,7 +159,7 @@ var (
 				Icon: ProjectsIcon,
 				Tag:  ResultsPage,
 			},
-			layout: LayoutConnectionSettings,
+			layout: LayoutResults,
 		},
 		{
 			NavItem: materials.NavItem{
@@ -269,46 +267,6 @@ func Start(ctx context.Context, cfg *config.AppConfig, args []string) error {
 					}
 				}
 
-				if State.RunRequested && !State.RunStarted {
-					State.RunStarted = true
-					debug(fmt.Sprintf("Starting: %s - %d / %d\n", selectedCommand, selectedMonth, selectedYear))
-					switch selectedCommand {
-					case "columns":
-						debug(fmt.Sprintf("columns: %s - %d / %d\n", selectedCommand, selectedMonth, selectedYear))
-						selectedProject, err := availableProjects.GetProject(State.SelectedProjectID)
-						if err != nil {
-							panic(err)
-						}
-
-						State.RunConfig.ProjectID = selectedProject.ID
-						State.RunConfig.Owner = selectedProject.Owner
-						State.RunConfig.StartDate = time.Date(selectedYear, time.Month(selectedMonth), 1, 0, 0, 0, 0, time.Now().Location())
-						State.RunConfig.EndDate = State.RunConfig.StartDate.AddDate(0, 1, 0)
-
-						colsRunner := runners.NewColumnsRunner(State.RunConfig, State.Client)
-						logrus.Debugf("colsRunner: %#v", colsRunner)
-
-						doAfter := func(rowValues [][]string) error {
-							logrus.Debugf("doAfter rowValues: %#v", rowValues)
-							for _, row := range rowValues {
-								resultText = fmt.Sprintf("%s\n%s", resultText, strings.Join(row, ","))
-							}
-
-							State.RunCompleted = true
-							State.RunRequested = false
-							State.RunStarted = false
-
-							outputText = resultText
-
-							// nav.SetNavDestination(ResultsPage)
-
-							return nil
-						}
-						colsRunner.After(doAfter)
-						go colsRunner.Run(ctx)
-					}
-				}
-
 				paint.Fill(gtx.Ops, th.Palette.Bg)
 
 				layout.Inset{
@@ -360,47 +318,11 @@ func layoutMainPage(gtx C) D {
 		State.RunRequested = true
 		debug(fmt.Sprintf("runButton.Clicked() - State.RunRequested:%t", State.RunRequested))
 		// State.Config.StartDate = time.Date(selectedYear, time.Month(selectedMonth), 1, 0, 0, 0, 0, time.Now().Location())
+		nav.SetNavDestination(ResultsPage)
 		op.InvalidateOp{}.Add(gtx.Ops)
-	}
-	if State.RunCompleted {
-		switch selectedCommand {
-		default:
-			return layoutResults(gtx)
-		}
-	}
-	if State.RunRequested {
-		switch selectedCommand {
-		default:
-			return layoutProgress(gtx)
-		}
 	}
 
 	return layoutMainRunOptions(gtx)
-}
-
-func layoutProgress(gtx C) D {
-	return layout.Flex{
-		Alignment: layout.Start,
-		Axis:      layout.Horizontal,
-	}.Layout(gtx,
-		layout.Rigid(func(gtx C) D {
-			if !State.RunCompleted {
-				outputTextField.SetText(outputText)
-			}
-			return outputTextField.Layout(gtx, th, "running")
-		}),
-	)
-}
-
-func layoutResults(gtx C) D {
-	return layout.Flex{
-		Alignment: layout.Start,
-		Axis:      layout.Horizontal,
-	}.Layout(gtx,
-		layout.Rigid(func(gtx C) D {
-			return resultTextField.Layout(gtx, th, "CSV Output")
-		}),
-	)
 }
 
 func layoutMainRunOptions(gtx C) D {

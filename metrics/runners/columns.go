@@ -101,6 +101,9 @@ func (r *ColumnsRunner) Run(ctx context.Context) error {
 		r.processIssueEvents(events)
 		issues = append(issues, issue)
 	}
+	if r.after != nil {
+		r.after(r.Values())
+	}
 	return nil
 }
 
