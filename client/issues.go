@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/3xcellent/github-metrics/models"
@@ -11,12 +12,16 @@ import (
 
 // GetIssues - uses owner, list of repo names, begindate and enddates to retrieve []*github.Issue and map to models.Issues
 func (m *MetricsClient) GetIssues(ctx context.Context, repoOwner string, repos []string, beginDate, endDate time.Time) (models.Issues, error) {
+	if repoOwner == "" {
+		return nil, errors.New("owner cannot be blank")
+	}
 	projectIssues := make(models.Issues, 0)
 	for _, repo := range repos {
 		repoIssues := make(models.Issues, 0)
 		logrus.Debugf("getting issues for repo: %s", repo)
 		opt := github.ListOptions{PerPage: 100}
 		for {
+			logrus.Debugf("getting issues for repo: %s page %d", repo, opt.Page)
 			issuesForPage, resp, err := m.c.Issues.ListByRepo(ctx, repoOwner, repo, &github.IssueListByRepoOptions{
 				//Milestone: "",
 				State: all,

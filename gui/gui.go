@@ -19,9 +19,9 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"git.sr.ht/~whereswaldon/materials"
-	"github.com/3xcellent/github-metrics/client"
 	"github.com/3xcellent/github-metrics/config"
 	"github.com/3xcellent/github-metrics/metrics/runners"
+	"github.com/3xcellent/github-metrics/models"
 	"github.com/sirupsen/logrus"
 )
 
@@ -45,6 +45,7 @@ const (
 const (
 	MainPage = iota
 	ProjectsPage
+	ResultsPage
 	ConnectionSettingsPage
 )
 
@@ -61,9 +62,6 @@ type Page struct {
 }
 
 var (
-	// Config - instance of the config.Config with loaded environment and configuration values
-	Config *config.AppConfig
-
 	// State - instance of state for for gui
 	State *MetricsState
 
@@ -159,6 +157,14 @@ var (
 		},
 		{
 			NavItem: materials.NavItem{
+				Name: "Results",
+				Icon: ProjectsIcon,
+				Tag:  ResultsPage,
+			},
+			layout: LayoutConnectionSettings,
+		},
+		{
+			NavItem: materials.NavItem{
 				Name: "Github Connection Settings",
 				Icon: SettingsIcon,
 				Tag:  ConnectionSettingsPage,
@@ -180,13 +186,31 @@ func debug(args ...interface{}) {
 }
 
 // Start - starts gui
-func Start(ctx context.Context, cfg *config.AppConfig) error {
+func Start(ctx context.Context, cfg *config.AppConfig, args []string) error {
 	w := app.NewWindow()
 	// initialize state and set github client
 	State = NewState(ctx)
+
 	err := State.SetClient(cfg.API)
 	if err != nil {
-		panic(err)
+		return err
+	}
+
+	if len(args) > 0 {
+		runConfig, err := cfg.GetRunConfig(args[0])
+		if err != nil {
+			return err
+		}
+		State.SelectedProjectID = runConfig.ProjectID
+		project, err := State.Client.GetProject(ctx, State.SelectedProjectID)
+		if err != nil {
+			return err
+		}
+		hasLoadedProjects = true
+		project.Owner = runConfig.Owner
+		availableProjects = models.Projects{project}
+		State.SelectedProjectName = project.Name
+		State.RunConfig = runConfig
 	}
 
 	// initialize form fields
@@ -195,16 +219,6 @@ func Start(ctx context.Context, cfg *config.AppConfig) error {
 	ownerInput.SetText(State.APIConfig.Owner)
 	baseURLInput.SetText(State.APIConfig.BaseURL)
 	uploadURLInput.SetText(State.APIConfig.UploadURL)
-	if cfg.ProjectID != 0 {
-		State.SelectedProjectID = cfg.ProjectID
-
-		project, err := State.Client.GetProject(ctx, State.SelectedProjectID)
-		if err != nil {
-			panic(err)
-		}
-
-		State.SelectedProjectName = project.Name
-	}
 
 	var ops op.Ops
 
@@ -254,13 +268,6 @@ func Start(ctx context.Context, cfg *config.AppConfig) error {
 						log.Printf("Overflow action selected: %v", event)
 					}
 				}
-				// if alternatePalette.Value {
-				// 	th.Palette = altPalette
-				// 	currentAccent = altPaletteAccent
-				// } else {
-				// 	th.Palette = lightPalette
-				// 	currentAccent = lightPaletteAccent
-				// }
 
 				if State.RunRequested && !State.RunStarted {
 					State.RunStarted = true
@@ -270,24 +277,15 @@ func Start(ctx context.Context, cfg *config.AppConfig) error {
 						debug(fmt.Sprintf("columns: %s - %d / %d\n", selectedCommand, selectedMonth, selectedYear))
 						selectedProject, err := availableProjects.GetProject(State.SelectedProjectID)
 						if err != nil {
-							selectedProject, err = State.Client.GetProject(ctx, State.SelectedProjectID)
-							if err != nil {
-								panic(err)
-							}
-						}
-
-						runCfg := selectedProject.RunConfig()
-						runCfg.StartDate = time.Date(selectedYear, time.Month(selectedMonth), 1, 0, 0, 0, 0, time.Now().Location())
-						runCfg.EndDate = runCfg.StartDate.AddDate(0, 1, 0)
-
-						logrus.Debugf("runCfg: %#v", runCfg)
-
-						ghClient, err := client.New(ctx, State.APIConfig)
-						if err != nil {
 							panic(err)
 						}
 
-						colsRunner := runners.NewColumnsRunner(runCfg, ghClient)
+						State.RunConfig.ProjectID = selectedProject.ID
+						State.RunConfig.Owner = selectedProject.Owner
+						State.RunConfig.StartDate = time.Date(selectedYear, time.Month(selectedMonth), 1, 0, 0, 0, 0, time.Now().Location())
+						State.RunConfig.EndDate = State.RunConfig.StartDate.AddDate(0, 1, 0)
+
+						colsRunner := runners.NewColumnsRunner(State.RunConfig, State.Client)
 						logrus.Debugf("colsRunner: %#v", colsRunner)
 
 						doAfter := func(rowValues [][]string) error {
@@ -300,8 +298,9 @@ func Start(ctx context.Context, cfg *config.AppConfig) error {
 							State.RunRequested = false
 							State.RunStarted = false
 
-							resultTextField.SetText(resultText)
-							logrus.Debugf("resultTextField: %s", resultText)
+							outputText = resultText
+
+							// nav.SetNavDestination(ResultsPage)
 
 							return nil
 						}
@@ -310,7 +309,6 @@ func Start(ctx context.Context, cfg *config.AppConfig) error {
 					}
 				}
 
-				// TODO try to move the below section outside of events select/case, but keep in for loop
 				paint.Fill(gtx.Ops, th.Palette.Bg)
 
 				layout.Inset{
@@ -343,7 +341,6 @@ func Start(ctx context.Context, cfg *config.AppConfig) error {
 					modal.Layout(gtx, th)
 					return layout.Dimensions{Size: gtx.Constraints.Max}
 				})
-
 				e.Frame(gtx.Ops)
 			}
 		}
@@ -409,115 +406,122 @@ func layoutResults(gtx C) D {
 func layoutMainRunOptions(gtx C) D {
 	return layout.Flex{
 		Alignment: layout.Start,
-		Axis:      layout.Horizontal,
+		Axis:      layout.Vertical,
 	}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return inset.Layout(gtx, material.Body1(th, fmt.Sprintf("Project : %s", State.SelectedProjectName)).Layout)
 		}),
-		layout.Rigid(func(gtx C) D {
-			if yearsEnum.Changed() {
-				intVal, err := strconv.Atoi(yearsEnum.Value)
-				if err != nil {
-					panic(err)
-				}
-				selectedYear = intVal
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{
+				Alignment: layout.Start,
+				Axis:      layout.Horizontal,
+			}.Layout(gtx,
+				layout.Rigid(func(gtx C) D {
+					if yearsEnum.Changed() {
+						intVal, err := strconv.Atoi(yearsEnum.Value)
+						if err != nil {
+							panic(err)
+						}
+						selectedYear = intVal
 
-				op.InvalidateOp{}.Add(gtx.Ops)
-			}
-			return inset.Layout(
-				gtx,
-				func(gtx C) D {
-					return layout.Flex{
-						Axis: layout.Vertical,
-					}.Layout(
+						op.InvalidateOp{}.Add(gtx.Ops)
+					}
+					return inset.Layout(
 						gtx,
-						layout.Rigid(func(gtx C) D {
-							return material.Body2(th, "Year:").Layout(gtx)
-						}),
-						layout.Rigid(func(gtx C) D {
-							return layout.Flex{
-								Axis: layout.Vertical,
-							}.Layout(
-								gtx,
-								yearOptions(th, &yearsEnum, time.Now().Year())...,
-							)
-						}),
-					)
-				},
-			)
-		}),
-		layout.Rigid(func(gtx C) D {
-			if monthsEnum.Changed() {
-				intVal, err := strconv.Atoi(monthsEnum.Value)
-				if err != nil {
-					panic(err)
-				}
-				selectedMonth = intVal
-
-				op.InvalidateOp{}.Add(gtx.Ops)
-			}
-			return inset.Layout(
-				gtx,
-				func(gtx C) D {
-					return layout.Flex{
-						Axis: layout.Vertical,
-					}.Layout(
-						gtx,
-						layout.Rigid(func(gtx C) D {
-							return material.Body2(th, "Month:").Layout(gtx)
-						}),
-						layout.Rigid(func(gtx C) D {
-							return layout.Flex{
-								Axis: layout.Vertical,
-							}.Layout(
-								gtx,
-								monthOptions(th, &monthsEnum)...,
-							)
-						}),
-					)
-				},
-			)
-		}),
-		layout.Rigid(func(gtx C) D {
-			if commandsEnum.Changed() {
-				selectedCommand = commandsEnum.Value
-				op.InvalidateOp{}.Add(gtx.Ops)
-			}
-			return inset.Layout(
-				gtx,
-				func(gtx C) D {
-					return layout.Flex{
-						Axis: layout.Vertical,
-					}.Layout(
-						gtx,
-						layout.Rigid(func(gtx C) D {
-							return material.Body2(th, "Metric:").Layout(gtx)
-						}),
-						layout.Rigid(func(gtx C) D {
+						func(gtx C) D {
 							return layout.Flex{
 								Axis: layout.Vertical,
 							}.Layout(
 								gtx,
 								layout.Rigid(func(gtx C) D {
-									return material.RadioButton(
-										th,
-										&commandsEnum,
-										"issues",
-										"Issues",
-									).Layout(gtx)
+									return material.Body2(th, "Year:").Layout(gtx)
 								}),
 								layout.Rigid(func(gtx C) D {
-									return material.RadioButton(
-										th,
-										&commandsEnum,
-										"columns",
-										"Columns",
-									).Layout(gtx)
+									return layout.Flex{
+										Axis: layout.Vertical,
+									}.Layout(
+										gtx,
+										yearOptions(th, &yearsEnum, time.Now().Year())...,
+									)
 								}),
 							)
-						}),
+						},
 					)
-				},
+				}),
+				layout.Rigid(func(gtx C) D {
+					if monthsEnum.Changed() {
+						intVal, err := strconv.Atoi(monthsEnum.Value)
+						if err != nil {
+							panic(err)
+						}
+						selectedMonth = intVal
+
+						op.InvalidateOp{}.Add(gtx.Ops)
+					}
+					return inset.Layout(
+						gtx,
+						func(gtx C) D {
+							return layout.Flex{
+								Axis: layout.Vertical,
+							}.Layout(
+								gtx,
+								layout.Rigid(func(gtx C) D {
+									return material.Body2(th, "Month:").Layout(gtx)
+								}),
+								layout.Rigid(func(gtx C) D {
+									return layout.Flex{
+										Axis: layout.Vertical,
+									}.Layout(
+										gtx,
+										monthOptions(th, &monthsEnum)...,
+									)
+								}),
+							)
+						},
+					)
+				}),
+				layout.Rigid(func(gtx C) D {
+					if commandsEnum.Changed() {
+						selectedCommand = commandsEnum.Value
+						op.InvalidateOp{}.Add(gtx.Ops)
+					}
+					return inset.Layout(
+						gtx,
+						func(gtx C) D {
+							return layout.Flex{
+								Axis: layout.Vertical,
+							}.Layout(
+								gtx,
+								layout.Rigid(func(gtx C) D {
+									return material.Body2(th, "Metric:").Layout(gtx)
+								}),
+								layout.Rigid(func(gtx C) D {
+									return layout.Flex{
+										Axis: layout.Vertical,
+									}.Layout(
+										gtx,
+										layout.Rigid(func(gtx C) D {
+											return material.RadioButton(
+												th,
+												&commandsEnum,
+												"issues",
+												"Issues",
+											).Layout(gtx)
+										}),
+										layout.Rigid(func(gtx C) D {
+											return material.RadioButton(
+												th,
+												&commandsEnum,
+												"columns",
+												"Columns",
+											).Layout(gtx)
+										}),
+									)
+								}),
+							)
+						},
+					)
+				}),
 			)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {

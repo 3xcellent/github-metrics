@@ -15,11 +15,12 @@ import (
 )
 
 var (
-	selectProjectButton   widget.Clickable
-	availableProjectsEnum widget.Enum
-	isLoadingProjects     bool
-	hasLoadedProjects     bool
-	availableProjects     models.Projects
+	getProjectFromGithubButton widget.Clickable
+	selectProjectButton        widget.Clickable
+	availableProjectsEnum      widget.Enum
+	isLoadingProjects          bool
+	hasLoadedProjects          bool
+	availableProjects          models.Projects
 )
 
 func projectOptions(th *material.Theme, input *widget.Enum, projects models.Projects) []layout.FlexChild {
@@ -42,6 +43,10 @@ func projectOptions(th *material.Theme, input *widget.Enum, projects models.Proj
 
 // LayoutProjectsPage - layout of available projects
 func LayoutProjectsPage(gtx C) D {
+	if getProjectFromGithubButton.Clicked() && !isLoadingProjects {
+		hasLoadedProjects = false
+	}
+
 	if !hasLoadedProjects {
 		if !isLoadingProjects {
 			isLoadingProjects = true
@@ -98,8 +103,8 @@ func LayoutProjectsPage(gtx C) D {
 		if err != nil {
 			panic(err)
 		}
+		State.RunConfig.ProjectID = State.SelectedProjectID
 		State.SelectedProjectName = project.Name
-
 		nav.SetNavDestination(MainPage)
 		op.InvalidateOp{}.Add(gtx.Ops)
 	}
@@ -110,6 +115,16 @@ func LayoutProjectsPage(gtx C) D {
 		Alignment: layout.Start,
 		Axis:      layout.Horizontal,
 	}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{
+				Axis: layout.Vertical,
+			}.Layout(
+				gtx,
+				layout.Rigid(func(gtx C) D {
+					return material.Button(th, &getProjectFromGithubButton, "Get Projects From Github").Layout(gtx)
+				}),
+			)
+		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return inset.Layout(gtx, material.Body1(th, `Project Options:`).Layout)
 		}),

@@ -76,6 +76,8 @@ func (r *ColumnsRunner) Values() [][]string {
 
 // Run - Runs Columns Mwtric (gathers data from github and processes repos, issues, and events)
 func (r *ColumnsRunner) Run(ctx context.Context) error {
+	logrus.Debug("Starting Run")
+	r.Debug()
 	ghIssues, _, err := r.GetIssuesAndColumns(ctx)
 	if err != nil {
 		return err

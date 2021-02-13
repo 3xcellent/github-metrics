@@ -155,12 +155,12 @@ func mapRepoProjects(ghProjects []*github.Project, projectOwner, projectRepo str
 }
 
 func mapToProject(project *github.Project) models.Project {
-	project.GetOwnerURL()
 	return models.Project{
 		Name: project.GetName(),
 		ID:   project.GetID(),
 		URL:  project.GetURL(),
 	}
+
 }
 
 // Project URLs look like: https://api.github.com/repos/3xcellent/github-metrics/

@@ -155,3 +155,17 @@ func (r *Runner) GetIssuesAndColumns(ctx context.Context) (models.Issues, models
 	}
 	return issues, projectColumns, nil
 }
+
+
+func (r *Runner) Debug() {
+	logrus.Debugf("\t Owner: %q", r.Owner)
+	logrus.Debugf("\t ProjectName: %q", r.ProjectName)
+	logrus.Debugf("\t ProjectID: %d", r.ProjectID)
+	logrus.Debugf("\t StartColumn: %q", r.StartColumn)
+	logrus.Debugf("\t EndColumn: %q", r.EndColumn)
+	logrus.Debugf("\t StartDate: %q", r.StartDate.String())
+	logrus.Debugf("\t EndDate: %q", r.EndDate.String())
+	logrus.Debugf("\t StartColumnIndex: %d", r.StartColumnIndex)
+	logrus.Debugf("\t EndColumnIndex: %d", r.EndColumnIndex)
+	logrus.Debugf("\t EndColumnID: %d", r.EndColumnID)
+}

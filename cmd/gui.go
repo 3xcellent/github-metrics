@@ -29,20 +29,10 @@ func startGUI(c *cobra.Command, args []string) error {
 		}
 	}
 
-	if len(args) > 0 {
-		runConfig, err := Config.GetRunConfig(args[0])
-		if err != nil {
-			log.Fatal(err)
-		}
-		Config.ProjectID = runConfig.ProjectID
-		if runConfig.Owner != "" {
-			Config.Owner = runConfig.Owner
-		}
 
-	}
 
 	go func() {
-		if err := gui.Start(ctx, Config); err != nil {
+		if err := gui.Start(ctx, Config, args); err != nil {
 			log.Fatal(err)
 		}
 		os.Exit(0)

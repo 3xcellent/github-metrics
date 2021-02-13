@@ -17,6 +17,7 @@ type MetricsState struct {
 	HasUpdatedAPIConfig    bool
 	HasValidatedConnection bool
 
+	RunConfig    config.RunConfig
 	RunRequested bool
 	RunStarted   bool
 	RunCompleted bool
