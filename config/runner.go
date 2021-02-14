@@ -8,6 +8,7 @@ import (
 // RunConfig - settings used to run metrics
 type RunConfig struct {
 	Name        string
+	MetricName  string
 	Owner       string
 	ProjectID   int64
 	RepoName    string

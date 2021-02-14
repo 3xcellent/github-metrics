@@ -25,13 +25,18 @@ func columns(c *cobra.Command, args []string) error {
 		return err
 	}
 
-	colsRunner := runners.NewColumnsRunner(runCfg, client)
-	colsRunner.LogFunc = logrus.Debug
-	err = colsRunner.Run(ctx)
+	runCfg.MetricName = "columns"
+
+	runner, err := runners.New(runCfg, client)
 	if err != nil {
 		return err
 	}
-	outpath := colsRunner.RunName()
+
+	err = runner.Run(ctx)
+	if err != nil {
+		return err
+	}
+	outpath := runner.RunName()
 	var writer *csv.Writer
 	if runCfg.CreateFile {
 		logrus.Debugf("writing to: %s", outpath)
@@ -45,7 +50,7 @@ func columns(c *cobra.Command, args []string) error {
 	}
 	defer writer.Flush()
 
-	for _, rowValues := range colsRunner.Values() {
+	for _, rowValues := range runner.Values() {
 		if err := writer.Write(rowValues); err != nil {
 			return err
 		}

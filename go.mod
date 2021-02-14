@@ -5,6 +5,7 @@ go 1.13
 require (
 	gioui.org v0.0.0-20201219144351-00c4a53036ad
 	git.sr.ht/~whereswaldon/materials v0.0.0-20201220015048-3f4fb49d1fd9
+	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da
 	github.com/google/go-github/v32 v32.0.0
 	github.com/joho/godotenv v1.3.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.3.0 // indirect

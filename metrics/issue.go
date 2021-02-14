@@ -83,8 +83,8 @@ func (i *Issue) Values() []string {
 		i.Type,               // Type
 		i.Title,              // Description
 	}
-	for _, columnDate := range i.ColumnDates {
-		row = append(row, columnDate.Date.Format("01/02/06"))
+	for colInx := i.StartColumnIndex; colInx <= i.EndColumnIndex; colInx++ {
+		row = append(row, i.ColumnDates[colInx].Date.Format("01/02/06"))
 	}
 
 	return append(row,

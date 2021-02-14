@@ -2,9 +2,7 @@ package runners
 
 import (
 	"context"
-	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/3xcellent/github-metrics/config"
@@ -19,29 +17,21 @@ type ColumnsRunner struct {
 	Cols metrics.DateColMap
 }
 
+var _ MetricsRunner = new(ColumnsRunner)
+
 // NewColumnsRunner - returns metric runner for running the columns metric, requires a project id and client
-func NewColumnsRunner(metricsCfg config.RunConfig, client Client) ColumnsRunner {
+func NewColumnsRunner(metricsCfg config.RunConfig, client Client) *ColumnsRunner {
 	m := ColumnsRunner{
 		Runner: NewBaseRunner(metricsCfg, client),
 		Cols:   metrics.NewDateColumnMap(metricsCfg.StartDate, metricsCfg.EndDate),
 	}
 
-	return m
-}
-
-// RunName - returns formatted filename including the .csv extension
-func (r *ColumnsRunner) RunName() string {
-	return fmt.Sprintf("%s_%s_%d-%02d.csv",
-		strings.Replace(r.ProjectName, " ", "_", -1),
-		"columns",
-		r.StartDate.Year(),
-		r.StartDate.Month(),
-	)
+	return &m
 }
 
 // Headers returns list of headers column names
 func (r *ColumnsRunner) Headers() []string {
-	headers := []string{"Day"}
+	headers := []string{"Date"}
 	headers = append(headers, r.ColumnNames...)
 	return headers
 }
@@ -76,7 +66,7 @@ func (r *ColumnsRunner) Values() [][]string {
 
 // Run - Runs Columns Mwtric (gathers data from github and processes repos, issues, and events)
 func (r *ColumnsRunner) Run(ctx context.Context) error {
-	logrus.Debug("Starting Run")
+	logrus.Debug("Starting ColumnsRunner")
 	r.Debug()
 	ghIssues, _, err := r.GetIssuesAndColumns(ctx)
 	if err != nil {
@@ -102,7 +92,10 @@ func (r *ColumnsRunner) Run(ctx context.Context) error {
 		issues = append(issues, issue)
 	}
 	if r.after != nil {
-		r.after(r.Values())
+		err = r.after(r.Values())
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

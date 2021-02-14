@@ -100,7 +100,7 @@ func TestColumnsRunner_Headers(t *testing.T) {
 	assert.NoError(t, actualErr)
 
 	t.Run("returns expected list of header column names", func(t *testing.T) {
-		expectedHeaders := []string{"Day"}
+		expectedHeaders := []string{"Date"}
 		expectedHeaders = append(expectedHeaders, object.ColumnNames...)
 		assert.Equal(t, expectedHeaders, object.Headers())
 	})

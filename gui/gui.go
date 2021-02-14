@@ -130,7 +130,6 @@ var (
 	selectedBoardName string
 	selectedYear      int
 	selectedMonth     int
-	selectedCommand   string
 	outputText        string
 	outputTextField   materials.TextField
 	resultText        string
@@ -317,7 +316,6 @@ func layoutMainPage(gtx C) D {
 	if runButton.Clicked() {
 		State.RunRequested = true
 		debug(fmt.Sprintf("runButton.Clicked() - State.RunRequested:%t", State.RunRequested))
-		// State.Config.StartDate = time.Date(selectedYear, time.Month(selectedMonth), 1, 0, 0, 0, 0, time.Now().Location())
 		nav.SetNavDestination(ResultsPage)
 		op.InvalidateOp{}.Add(gtx.Ops)
 	}
@@ -404,7 +402,8 @@ func layoutMainRunOptions(gtx C) D {
 				}),
 				layout.Rigid(func(gtx C) D {
 					if commandsEnum.Changed() {
-						selectedCommand = commandsEnum.Value
+						State.RunConfig.MetricName = commandsEnum.Value
+						logrus.Debugf("Metric selected: %s", State.RunConfig.MetricName)
 						op.InvalidateOp{}.Add(gtx.Ops)
 					}
 					return inset.Layout(

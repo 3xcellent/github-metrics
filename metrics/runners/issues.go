@@ -3,8 +3,6 @@ package runners
 import (
 	"context"
 	"errors"
-	"fmt"
-	"strings"
 
 	"github.com/3xcellent/github-metrics/config"
 	"github.com/3xcellent/github-metrics/metrics"
@@ -21,22 +19,12 @@ type IssuesRunner struct {
 }
 
 // NewIssuesRunner - returns metric runner for running the columns metric, requires a project id and client
-func NewIssuesRunner(metricsCfg config.RunConfig, client Client) IssuesRunner {
+func NewIssuesRunner(metricsCfg config.RunConfig, client Client) *IssuesRunner {
 	m := IssuesRunner{
 		Runner: NewBaseRunner(metricsCfg, client),
 	}
 
-	return m
-}
-
-// Filename - returns formatted filename including the .csv extension
-func (r *IssuesRunner) Filename() string {
-	return fmt.Sprintf("%s_%s_%d-%02d.csv",
-		strings.Replace(r.ProjectName, " ", "_", -1),
-		"issues",
-		r.StartDate.Year(),
-		r.StartDate.Month(),
-	)
+	return &m
 }
 
 // Values - returns CSV data (rows and cols) as two-deimensional slice [][]string
@@ -64,6 +52,9 @@ func (r *IssuesRunner) Values() [][]string {
 
 // Run - Runs Columns Mwtric (gathers data from github and processes repos, issues, and events)
 func (r *IssuesRunner) Run(ctx context.Context) error {
+	logrus.Debug("Starting IssuesRunner")
+	r.Debug()
+
 	ghIssues, projectColumns, err := r.GetIssuesAndColumns(ctx)
 	if err != nil {
 		return err
@@ -84,7 +75,12 @@ func (r *IssuesRunner) Run(ctx context.Context) error {
 		r.Issues = append(r.Issues, metricsIssue)
 	}
 
-	logrus.Debugf("done processing %d issues", len(r.Issues))
+	if r.after != nil {
+		err = r.after(r.Values())
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

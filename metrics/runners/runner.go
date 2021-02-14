@@ -3,6 +3,7 @@ package runners
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -13,7 +14,8 @@ import (
 
 type afterFunc func([][]string) error
 
-type csvRunner interface {
+// MetricsRunner is the main runner interface all runners must honor
+type MetricsRunner interface {
 	Run(context.Context) error
 	RunName() string
 	Values() [][]string
@@ -37,13 +39,14 @@ type Client interface {
 // Runner - provides a metricsClient, and must honor the CSVRunner interface to allow
 // running metrics and running the afterFunc if set
 type Runner struct {
-	csvRunner
+	MetricsRunner
 	Client  Client
 	after   afterFunc
 	LogFunc func(args ...interface{})
 
 	NoHeaders bool
 
+	MetricName  string
 	ProjectName string
 	ProjectID   int64
 	Owner       string
@@ -59,8 +62,18 @@ type Runner struct {
 }
 
 // After - sets the afterFunc to one provided
-func (r *Runner) After(afterFunc func([][]string) error) {
-	r.after = afterFunc
+func (r *Runner) After(af afterFunc) {
+	r.after = af
+}
+
+func New(metricsCfg config.RunConfig, client Client) (MetricsRunner, error) {
+	switch metricsCfg.MetricName {
+	case "columns":
+		return NewColumnsRunner(metricsCfg, client), nil
+	case "issues":
+		return NewIssuesRunner(metricsCfg, client), nil
+	}
+	return nil, errors.New("runner name unkonwn")
 }
 
 // NewBaseRunner - creates the base runner from the config and set the client client
@@ -68,6 +81,7 @@ func NewBaseRunner(metricsCfg config.RunConfig, client Client) *Runner {
 	logrus.Debugf("initializing new runner with %#v:", metricsCfg)
 	return &Runner{
 		Client:      client,
+		MetricName:  metricsCfg.MetricName,
 		ProjectID:   metricsCfg.ProjectID,
 		Owner:       metricsCfg.Owner,
 		StartDate:   metricsCfg.StartDate,
@@ -156,8 +170,18 @@ func (r *Runner) GetIssuesAndColumns(ctx context.Context) (models.Issues, models
 	return issues, projectColumns, nil
 }
 
+// Filename - returns formatted filename including the .csv extension
+func (r *IssuesRunner) Filename() string {
+	return fmt.Sprintf("%s_%s_%d-%02d.csv",
+		strings.Replace(r.ProjectName, " ", "_", -1),
+		r.MetricName,
+		r.StartDate.Year(),
+		r.StartDate.Month(),
+	)
+}
 
 func (r *Runner) Debug() {
+	logrus.Debugf("\t MetricName: %q", r.MetricName)
 	logrus.Debugf("\t Owner: %q", r.Owner)
 	logrus.Debugf("\t ProjectName: %q", r.ProjectName)
 	logrus.Debugf("\t ProjectID: %d", r.ProjectID)

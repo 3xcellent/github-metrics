@@ -25,18 +25,23 @@ func issues(c *cobra.Command, args []string) error {
 		return err
 	}
 
-	issuesRunner := runners.NewIssuesRunner(runCfg, client)
-	issuesRunner.LogFunc = logrus.Debug
-	err = issuesRunner.Run(ctx)
+	runCfg.MetricName = "issues"
+
+	runner, err := runners.New(runCfg, client)
 	if err != nil {
 		return err
 	}
-	outputPath := issuesRunner.Filename()
 
+	err = runner.Run(ctx)
+	if err != nil {
+		return err
+	}
+
+	outpath := runner.RunName()
 	var writer *csv.Writer
 	if runCfg.CreateFile {
-		logrus.Debugf("opening file for output: %s", outputPath)
-		output, err := os.Create(outputPath)
+		logrus.Debugf("writing to: %s", outpath)
+		output, err := os.Create(outpath)
 		if err != nil {
 			panic(err)
 		}
@@ -46,8 +51,8 @@ func issues(c *cobra.Command, args []string) error {
 	}
 	defer writer.Flush()
 
-	for _, rowColumns := range issuesRunner.Values() {
-		if err := writer.Write(rowColumns); err != nil {
+	for _, rowValues := range runner.Values() {
+		if err := writer.Write(rowValues); err != nil {
 			return err
 		}
 	}
@@ -58,7 +63,8 @@ func issues(c *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		c.Printf("Wrote to: file://%s/%s\n", wd, outputPath)
+		c.Printf("Wrote to: file://%s/%s\n", wd, outpath)
 	}
+
 	return nil
 }
