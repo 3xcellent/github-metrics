@@ -17,6 +17,11 @@ var (
 		return icon
 	}()
 
+	RunIcon *widget.Icon = func() *widget.Icon {
+		icon, _ := widget.NewIcon(icons.ImageTune)
+		return icon
+	}()
+
 	ProjectsIcon *widget.Icon = func() *widget.Icon {
 		icon, _ := widget.NewIcon(icons.ActionDashboard)
 		return icon

@@ -8,12 +8,6 @@ import (
 	"github.com/3xcellent/github-metrics/metrics/runners"
 )
 
-// local pages vars
-
-var (
-	isRunning bool
-)
-
 // LayoutResults - results of the columns metric
 func LayoutResults(gtx C) D {
 	// set initial form values
@@ -48,18 +42,6 @@ func LayoutResults(gtx C) D {
 		return inset.Layout(gtx, material.Body2(th, "working...").Layout)
 	}
 	return layoutResultValues(gtx, State.RunValues)
-	// return layout.Flex{
-	// 	Alignment: layout.Middle,
-	// 	Axis:      layout.Vertical,
-	// }.Layout(
-	// 	gtx,
-	// 	layout.Rigid(func(gtx C) D {
-	// 		if State.RunRequested {
-	// 			return inset.Layout(gtx, material.Body2(th, "working...").Layout)
-	// 		}
-	// 		return layoutResultValues(gtx, State.RunValues)
-	// 	}),
-	// )
 }
 
 func layoutResultValues(gtx C, values [][]string) D {

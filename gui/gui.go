@@ -120,8 +120,8 @@ var (
 	appPages = []Page{
 		{
 			NavItem: materials.NavItem{
-				Name: "Main",
-				Icon: HomeIcon,
+				Name: "Run Options",
+				Icon: RunIcon,
 				Tag:  RunOptionsPage,
 			},
 			layout: layoutRunOptionsPage,
