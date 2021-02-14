@@ -1,13 +1,11 @@
 package gui
 
 import (
-	"strings"
 	"time"
 
 	"gioui.org/layout"
 	"gioui.org/widget/material"
 	"github.com/3xcellent/github-metrics/metrics/runners"
-	"github.com/sirupsen/logrus"
 )
 
 // local pages vars
@@ -91,11 +89,8 @@ func resultCols(gtx C, values [][]string) []layout.FlexChild {
 }
 
 func resultCol(gtx C, values [][]string, colIdx int) []layout.FlexChild {
-	logrus.Debugf("getting values for colIdx: %d", colIdx)
 	items := make([]layout.FlexChild, 0, len(values))
 	for rowIdx := 0; rowIdx < len(values); rowIdx++ {
-		rowVals := values[rowIdx]
-		logrus.Debugf("rowVals: %s", strings.Join(rowVals, ","))
 		i := values[rowIdx][colIdx]
 		items = append(items, layout.Rigid(func(gtx C) D {
 			return inset.Layout(gtx, material.Body2(th, i).Layout)
