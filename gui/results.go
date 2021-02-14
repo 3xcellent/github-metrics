@@ -2,7 +2,6 @@ package gui
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"gioui.org/layout"
@@ -40,29 +39,16 @@ func LayoutResults(gtx C) D {
 			logrus.Debugf("colsRunner: %#v", colsRunner)
 
 			doAfter := func(rowValues [][]string) error {
-				logrus.Debugf("doAfter rowValues: %#v", rowValues)
-				for _, row := range rowValues {
-					resultText = fmt.Sprintf("%s\n%s", resultText, strings.Join(row, ","))
-				}
-
+				State.RunValues = rowValues
 				State.RunCompleted = true
-				State.RunRequested = false
 				State.RunStarted = false
-
-				outputText = resultText
+				State.RunRequested = false
 				return nil
 			}
 			colsRunner.After(doAfter)
 			go colsRunner.Run(State.Context)
 		}
 	}
-
-	// if State.RunCompleted {
-	// 	switch selectedCommand {
-	// 	default:
-	// 		return layoutResults(gtx)
-	// 	}
-	// }
 
 	return layout.Flex{
 		Alignment: layout.Middle,
@@ -76,7 +62,43 @@ func LayoutResults(gtx C) D {
 			if State.RunRequested {
 				return inset.Layout(gtx, material.Body2(th, "working...").Layout)
 			}
-			return inset.Layout(gtx, material.Body2(th, resultText).Layout)
+			return layoutResultValues(gtx, State.RunValues)
 		}),
 	)
+}
+
+func layoutResultValues(gtx C, rows [][]string) D {
+	return layout.Flex{
+		Alignment: layout.Start,
+		Axis:      layout.Vertical,
+	}.Layout(gtx,
+		resultRows(gtx, rows)...,
+	)
+}
+
+func resultRows(gtx C, rows [][]string) []layout.FlexChild {
+	childRows := make([]layout.FlexChild, 0, len(rows))
+	for _, row := range rows {
+		r := row
+		childRows = append(childRows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{
+				Alignment: layout.Start,
+				Axis:      layout.Horizontal,
+			}.Layout(gtx,
+				resultRow(gtx, r)...,
+			)
+		}))
+	}
+	return childRows
+}
+
+func resultRow(gtx C, row []string) []layout.FlexChild {
+	items := make([]layout.FlexChild, 0, len(row))
+	for _, item := range row {
+		i := item
+		items = append(items, layout.Rigid(func(gtx C) D {
+			return inset.Layout(gtx, material.Body2(th, i).Layout)
+		}))
+	}
+	return items
 }

@@ -21,6 +21,7 @@ type MetricsState struct {
 	RunRequested bool
 	RunStarted   bool
 	RunCompleted bool
+	RunValues    [][]string
 
 	SelectedProjectID   int64
 	SelectedProjectName string
