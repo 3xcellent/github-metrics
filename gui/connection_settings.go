@@ -39,7 +39,7 @@ func LayoutConnectionSettings(gtx C) D {
 		if State.SelectedProjectID == 0 || State.SelectedProjectName == "" {
 			nav.SetNavDestination(ProjectsPage)
 		}
-		nav.SetNavDestination(MainPage)
+		nav.SetNavDestination(RunOptionsPage)
 	}
 	return layout.Flex{
 		Alignment: layout.Middle,

@@ -105,7 +105,7 @@ func LayoutProjectsPage(gtx C) D {
 		}
 		State.RunConfig.ProjectID = State.SelectedProjectID
 		State.SelectedProjectName = project.Name
-		nav.SetNavDestination(MainPage)
+		nav.SetNavDestination(RunOptionsPage)
 		op.InvalidateOp{}.Add(gtx.Ops)
 	}
 

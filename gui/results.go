@@ -44,21 +44,22 @@ func LayoutResults(gtx C) D {
 		go runner.Run(State.Context)
 	}
 
-	return layout.Flex{
-		Alignment: layout.Middle,
-		Axis:      layout.Vertical,
-	}.Layout(
-		gtx,
-		layout.Rigid(func(gtx C) D {
-			return inset.Layout(gtx, material.H1(th, "Results").Layout)
-		}),
-		layout.Rigid(func(gtx C) D {
-			if State.RunRequested {
-				return inset.Layout(gtx, material.Body2(th, "working...").Layout)
-			}
-			return layoutResultValues(gtx, State.RunValues)
-		}),
-	)
+	if State.RunRequested {
+		return inset.Layout(gtx, material.Body2(th, "working...").Layout)
+	}
+	return layoutResultValues(gtx, State.RunValues)
+	// return layout.Flex{
+	// 	Alignment: layout.Middle,
+	// 	Axis:      layout.Vertical,
+	// }.Layout(
+	// 	gtx,
+	// 	layout.Rigid(func(gtx C) D {
+	// 		if State.RunRequested {
+	// 			return inset.Layout(gtx, material.Body2(th, "working...").Layout)
+	// 		}
+	// 		return layoutResultValues(gtx, State.RunValues)
+	// 	}),
+	// )
 }
 
 func layoutResultValues(gtx C, values [][]string) D {
@@ -98,39 +99,3 @@ func resultCol(gtx C, values [][]string, colIdx int) []layout.FlexChild {
 	}
 	return items
 }
-
-// func layoutResultValues(gtx C, rows [][]string) D {
-// 	return layout.Flex{
-// 		Alignment: layout.Start,
-// 		Axis:      layout.Vertical,
-// 	}.Layout(gtx,
-// 		resultRows(gtx, rows)...,
-// 	)
-// }
-
-// func resultRows(gtx C, rows [][]string) []layout.FlexChild {
-// 	childRows := make([]layout.FlexChild, 0, len(rows))
-// 	for _, row := range rows {
-// 		r := row
-// 		childRows = append(childRows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-// 			return layout.Flex{
-// 				Alignment: layout.Start,
-// 				Axis:      layout.Horizontal,
-// 			}.Layout(gtx,
-// 				resultRow(gtx, r)...,
-// 			)
-// 		}))
-// 	}
-// 	return childRows
-// }
-
-// func resultRow(gtx C, row []string) []layout.FlexChild {
-// 	items := make([]layout.FlexChild, 0, len(row))
-// 	for _, item := range row {
-// 		i := item
-// 		items = append(items, layout.Rigid(func(gtx C) D {
-// 			return inset.Layout(gtx, material.Body2(th, i).Layout)
-// 		}))
-// 	}
-// 	return items
-// }
