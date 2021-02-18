@@ -1,6 +1,7 @@
 package gui
 
 import (
+	"context"
 	"time"
 
 	"gioui.org/layout"
@@ -35,13 +36,62 @@ func LayoutResults(gtx C) D {
 			return nil
 		}
 		runner.After(doAfter)
-		go runner.Run(State.Context)
+		go runner.Run(context.Background())
 	}
 
 	if State.RunRequested {
 		return inset.Layout(gtx, material.Body2(th, "working...").Layout)
 	}
-	return layoutResultValues(gtx, State.RunValues)
+	switch State.RunConfig.MetricName {
+	case "issues":
+		return layoutResultValues(gtx, State.RunValues)
+	default:
+		return defaultValues(State.RunValues).Layout(gtx)
+	}
+}
+
+type defaultValues [][]string
+
+func (vals defaultValues) Layout(gtx C) D {
+	return layout.Flex{
+		Alignment: layout.Start,
+		Axis:      layout.Horizontal,
+	}.Layout(gtx,
+		vals.details(gtx)...,
+	)
+}
+func (vals defaultValues) details(gtx C) []layout.FlexChild {
+	numRows := len(vals)
+	childRows := make([]layout.FlexChild, 0, numRows)
+	if numRows == 0 {
+		return childRows
+	}
+	numCols := len(vals[0])
+	for colIdx := 0; colIdx < numCols; colIdx++ {
+		idx := colIdx
+		childRows = append(childRows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{
+				Alignment: layout.Start,
+				Axis:      layout.Vertical,
+			}.Layout(gtx,
+				vals.columnDetails(gtx, idx)...,
+			)
+		}))
+	}
+	return childRows
+}
+
+func (vals defaultValues) columnDetails(gtx C, colIdx int) []layout.FlexChild {
+	numRows := len(vals)
+
+	items := make([]layout.FlexChild, 0, numRows)
+	for rowIdx := 0; rowIdx < numRows; rowIdx++ {
+		i := vals[rowIdx][colIdx]
+		items = append(items, layout.Rigid(func(gtx C) D {
+			return inset.Layout(gtx, material.Body2(th, i).Layout)
+		}))
+	}
+	return items
 }
 
 func layoutResultValues(gtx C, values [][]string) D {

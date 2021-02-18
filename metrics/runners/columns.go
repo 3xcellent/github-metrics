@@ -51,7 +51,7 @@ func (r *ColumnsRunner) Values() [][]string {
 		dateRow := []string{metrics.DateKey(currentDate)}
 		for i := r.StartColumnIndex; i <= r.EndColumnIndex; i++ {
 			appendVal := "0"
-			val, found := r.Cols.DateColumn(currentDate, r.ColumnNames[i])
+			val, found := r.Cols.DateColumn(currentDate, r.ColumnNames[i-(r.EndColumnIndex-r.StartColumnIndex)])
 			if found {
 				appendVal = strconv.Itoa(val)
 			}
