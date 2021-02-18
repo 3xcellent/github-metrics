@@ -65,7 +65,7 @@ func LayoutConnectionSettings(gtx C) D {
 			return baseURLInput.Layout(gtx, th, "Base URL")
 		}),
 		layout.Rigid(func(gtx C) D {
-			return inset.Layout(gtx, material.Body2(th, "Github Base URL (example: https://github.com)").Layout)
+			return inset.Layout(gtx, material.Body2(th, "Enterprise Github Base URL (only needed if using an enterprise server; example: https://enterprise.example.com)").Layout)
 		}),
 		layout.Rigid(func(gtx C) D {
 			uploadURLInput.Alignment = inputAlignment
