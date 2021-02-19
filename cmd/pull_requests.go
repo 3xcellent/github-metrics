@@ -10,6 +10,7 @@ import (
 	"github.com/3xcellent/github-metrics/client"
 	"github.com/3xcellent/github-metrics/config"
 	"github.com/3xcellent/github-metrics/metrics"
+	"github.com/3xcellent/github-metrics/models"
 	"github.com/spf13/cobra"
 )
 
@@ -44,30 +45,34 @@ func pullRequests(c *cobra.Command, args []string) error {
 		return err
 	}
 
-	// gather repo list
-	var repoList []string
-	if len(repoNames) > 0 {
-		repoList = strings.Split(repoNames, ",")
-	} else {
-		if Config.Boards == nil {
-			return errors.New("no project boards configured")
-		}
-		board, found := Config.Boards[args[0]]
-		if !found {
-			return errors.New("no project board found with that name")
-		}
-		boardColumns := make(metrics.BoardColumns, 0)
-		for _, col := range ghClient.GetProjectColumns(c.Context(), board.BoardID) {
-			colName := col.GetName()
+	runCfg, err := Config.GetRunConfig(args[0])
+	if err != nil {
+		return err
+	}
 
-			boardColumns = append(boardColumns, &metrics.BoardColumn{Name: colName, ID: col.GetID()})
+	projectColumns, err := ghClient.GetProjectColumns(c.Context(), runCfg.ProjectID)
+	if err != nil {
+		return err
+	}
+
+	var repoList models.Repositories
+	if len(repoNames) > 0 {
+		for _, repoName := range strings.Split(repoNames, ",") {
+			repoList = append(repoList, models.Repository{
+				Name:  repoName,
+				Owner: runCfg.Owner,
+			})
 		}
-		repoList = ghClient.GetReposFromIssuesOnColumn(c.Context(), boardColumns[Config.EndColumnIndex].ID)
+	} else {
+		repoList, err = ghClient.GetReposFromProjectColumn(c.Context(), projectColumns[len(projectColumns)-1].ID)
+		if err != nil {
+			return err
+		}
 	}
 
 	for _, repo := range repoList {
-		repo = strings.Trim(repo, " ")
-		output, err := os.Create(fmt.Sprintf("%s_pullrequests.csv", repo))
+		repoName := strings.Trim(repo.Name, " ")
+		output, err := os.Create(fmt.Sprintf("%s_pullrequests.csv", repoName))
 		writer := csv.NewWriter(output)
 
 		cols := []string{
@@ -86,34 +91,26 @@ func pullRequests(c *cobra.Command, args []string) error {
 			panic(err)
 		}
 
-		prs, err := ghClient.GetPullRequests(c.Context(), Config.Owner, repo)
+		prs, err := ghClient.GetPullRequests(c.Context(), Config.Owner, repo.Name)
 		if err != nil {
 			return err
 		}
 		for _, pr := range prs {
-			if pr.GetClosedAt().IsZero() {
+			if pr.ClosedAt.IsZero() {
 				// pr is still open
 				continue
 			}
-			reviewerName := ""
-			if len(pr.RequestedReviewers) > 0 {
-				reviewers := make([]string, 0, len(pr.RequestedReviewers))
-				for _, reviewer := range pr.RequestedReviewers {
-					reviewers = append(reviewers, reviewer.GetLogin())
-				}
-				reviewerName = strings.Join(reviewers, "|")
-			}
 
-			_, repoName, issueNumber := client.ParseContentURL(pr.GetIssueURL())
+			_, repoName, issueNumber := client.ParseIssueURL(pr.IssueURL)
 			cols := []string{
 				repoName,
 				fmt.Sprintf("%d", issueNumber),
-				pr.GetCreatedAt().String(),
-				pr.GetUser().GetLogin(),
-				Config.CreatedByGroup(pr.GetUser().GetLogin()),
-				pr.GetClosedAt().String(),
-				reviewerName,
-				metrics.FmtDaysHours(pr.GetClosedAt().Sub(pr.GetCreatedAt())),
+				pr.CreatedAt.String(),
+				pr.CreatedByUser,
+				Config.CreatedByGroup(pr.CreatedByUser),
+				pr.ClosedAt.String(),
+				strings.Join(pr.RequestedReviewers, ","),
+				metrics.FmtDaysHours(pr.ClosedAt.Sub(pr.CreatedAt)),
 			}
 			err := writer.Write(cols)
 			if err != nil {

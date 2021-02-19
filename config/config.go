@@ -3,65 +3,41 @@ package config
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/google/go-github/v32/github"
 	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
-type MetricsClient interface {
-	GetIssue(ctx context.Context, repoOwner, repoName string, issueNumber int) (*github.Issue, error)
-	GetProject(ctx context.Context, boardID int64) (*github.Project, error)
-	GetProjectColumns(ctx context.Context, projectID int64) []*github.ProjectColumn
-	GetPullRequests(ctx context.Context, repoOwner, repoName string) ([]*github.PullRequest, error)
-	GetIssuesFromColumn(ctx context.Context, repoOwner string, columnID int64, beginDate, endDate time.Time) map[string][]*github.Issue
-	GetIssueEvents(ctx context.Context, repoOwner, repoName string, issueNumber int) ([]*github.IssueEvent, error)
-	GetReposFromIssuesOnColumn(ctx context.Context, columnId int64) []string
-}
-
-type Configuration struct {
-	GithubClient     MetricsClient
-	API              APIConfig
-	Boards           map[string]Board
-	NoHeaders        bool
-	OutputPath       string
-	CreateFile       bool
-	StartColumnIndex int
-	StartColumn      string
-	EndColumn        string
-	EndColumnIndex   int
-	IssueNumber      int
-	RepoName         string
-	Owner            string
-	StartDate        time.Time
-	EndDate          time.Time
-	Verbose          bool
-	Timezone         *time.Location
-	LoginNames       []string
-	GroupName        string
-}
-
-type APIConfig struct {
-	Token     string
-	BaseURL   string
-	UploadURL string
-}
-
-type Board struct {
+// AppConfig - the Config used by the CLI and GUI apps
+type AppConfig struct {
+	API         APIConfig
+	RunConfigs  RunConfigs
+	NoHeaders   bool
+	OutputPath  string
+	CreateFile  bool
 	StartColumn string
 	EndColumn   string
+	// StartColumnIndex int
+	// EndColumnIndex   int
+	ProjectID   int64
+	IssueNumber int
+	RepoName    string
 	Owner       string
-	BoardID     int64
+	StartDate   time.Time
+	EndDate     time.Time
+	Verbose     bool
+	Timezone    *time.Location
+	LoginNames  []string
+	GroupName   string
 }
 
-func (c *Configuration) CreatedByGroup(name string) string {
+func (c *AppConfig) CreatedByGroup(name string) string {
 	for _, loginName := range c.LoginNames {
 		if name == loginName {
 			return c.GroupName
@@ -70,32 +46,7 @@ func (c *Configuration) CreatedByGroup(name string) string {
 	return ""
 }
 
-func (c *Configuration) OutPath() *os.File {
-	if c.OutputPath == "" {
-		return os.Stdout
-	}
-
-	logrus.Debugf("writing to: %s", c.OutputPath)
-	output, err := os.Create(c.OutputPath)
-	if err != nil {
-		panic(err)
-	}
-	return output
-}
-
-func (c *Configuration) GetBoard(name string) (Board, error) {
-	if len(c.Boards) == 0 {
-		return Board{}, errors.New("no project boards configured")
-	}
-
-	board, found := c.Boards[name]
-	if !found {
-		return Board{}, errors.New("no project board found with that name")
-	}
-	return board, nil
-}
-
-func newConfigFromEnv() (*Configuration, error) {
+func newConfigFromEnv() (*AppConfig, error) {
 	loadedEnvFile := true
 	err := godotenv.Load()
 	if err != nil {
@@ -126,7 +77,7 @@ func newConfigFromEnv() (*Configuration, error) {
 			return nil, errors.Wrap(err, "error loading config file")
 		}
 	}
-	var cfg Configuration
+	var cfg AppConfig
 	err = viper.Unmarshal(&cfg)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to decode default into struct")
@@ -134,8 +85,9 @@ func newConfigFromEnv() (*Configuration, error) {
 	return &cfg, nil
 }
 
-func NewStaticConfig(config []byte) (*Configuration, error) {
-	var cfg Configuration
+// NewStaticConfig - returns a config defined with the provided yaml ([]byte)
+func NewStaticConfig(config []byte) (*AppConfig, error) {
+	var cfg AppConfig
 
 	viper.SetConfigType("yaml")
 	err := viper.ReadConfig(bytes.NewBuffer(config))
@@ -147,20 +99,21 @@ func NewStaticConfig(config []byte) (*Configuration, error) {
 		return nil, errors.Wrap(err, "unable to decode into struct")
 	}
 
-	err = cfg.Init()
+	err = cfg.init()
 	return &cfg, err
 }
 
-func NewDefaultConfig() (*Configuration, error) {
+// NewDefaultConfig - returns a config from current environment settings
+func NewDefaultConfig() (*AppConfig, error) {
 	cfg, err := newConfigFromEnv()
 	if err != nil {
 		return nil, errors.Wrap(err, "error initializing default config")
 	}
-	err = cfg.Init()
+	err = cfg.init()
 	return cfg, err
 }
 
-func (c *Configuration) Init() error {
+func (c *AppConfig) init() error {
 	if c.Verbose {
 		logrus.SetLevel(logrus.DebugLevel)
 	} else {
@@ -207,11 +160,41 @@ func (c *Configuration) Init() error {
 	}
 
 	logrus.Debugf("Retrieving cards in range: %s - %s", c.StartDate.String(), c.EndDate.String())
-	logrus.Debugf("Github Metrics Configuration:\n%#v\n", c)
+	logrus.Debugf("Github Metrics Config:\n%#v\n", c)
 
 	return nil
 }
 
-func (c *Configuration) SetMetricsClient(metricsClient MetricsClient) {
-	c.GithubClient = metricsClient
+// GetRunConfig - finds RunConfig by its name, or err if not found
+func (c *AppConfig) GetRunConfig(name string) (RunConfig, error) {
+	if len(c.RunConfigs) == 0 {
+		return RunConfig{}, errors.New("no project run configs configured")
+	}
+
+	for _, runConfig := range c.RunConfigs {
+		if runConfig.Name == name {
+			rc := runConfig
+			if rc.Owner == "" {
+				rc.Owner = c.Owner
+			}
+			if rc.StartColumn == "" {
+				rc.StartColumn = c.StartColumn
+			}
+			if rc.EndColumn == "" {
+				rc.EndColumn = c.EndColumn
+			}
+
+			rc.RepoName = c.RepoName
+			rc.IssueNumber = c.IssueNumber
+			rc.CreateFile = c.CreateFile
+			rc.NoHeaders = c.NoHeaders
+			rc.StartDate = c.StartDate
+			rc.EndDate = c.EndDate
+
+			return rc, nil
+		}
+	}
+
+	return RunConfig{}, errors.New("no run configs found with that name")
+
 }

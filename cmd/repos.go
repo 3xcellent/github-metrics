@@ -2,20 +2,18 @@ package cmd
 
 import (
 	"context"
-	"strings"
+	"fmt"
 
 	"github.com/3xcellent/github-metrics/client"
 	"github.com/3xcellent/github-metrics/config"
-	"github.com/3xcellent/github-metrics/metrics"
 	"github.com/spf13/cobra"
 )
 
 var reposCommand = &cobra.Command{
-	Use:   "repos [project]",
-	Short: "shows list of repos for a specific project",
-	Long:  "shows list of repos for a specific project",
+	Use:   "repos",
+	Short: "shows list of repos",
+	Long:  "shows list of repos",
 	RunE:  repos,
-	Args:  cobra.MinimumNArgs(1),
 }
 
 func repos(c *cobra.Command, args []string) error {
@@ -27,25 +25,27 @@ func repos(c *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		Config.GithubClient, err = client.New(ctx, Config.API)
-		if err != nil {
-			return err
-		}
+
 	}
 
-	board, err := Config.GetBoard(args[0])
+	client, err := client.New(ctx, Config.API)
 	if err != nil {
 		return err
 	}
 
-	boardColumns := make(metrics.BoardColumns, 0)
-	for _, col := range Config.GithubClient.GetProjectColumns(ctx, board.BoardID) {
-		colName := col.GetName()
-		boardColumns = append(boardColumns, &metrics.BoardColumn{Name: colName, ID: col.GetID()})
+	repos, err := client.GetUserRepos(ctx, Config.Owner)
+	if err != nil {
+		return err
 	}
 
-	repos := Config.GithubClient.GetReposFromIssuesOnColumn(ctx, boardColumns[Config.EndColumnIndex].ID)
-	c.Println(strings.Join(repos, ", "))
+	for _, r := range repos {
+		fmt.Printf("name: %s", r.Name)
+		fmt.Printf("id: %v", r.ID)
+		fmt.Printf("url: %s", r.URL)
+	}
+
+	// repos := Config.GithubClient.GetReposFromIssuesOnColumn(ctx, boardColumns[Config.EndColumnIndex].ID)
+	// c.Println(strings.Join(repos, ", "))
 
 	return nil
 }

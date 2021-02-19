@@ -8,77 +8,55 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/go-github/v32/github"
+	"github.com/3xcellent/github-metrics/models"
 	"github.com/sirupsen/logrus"
 )
 
-const fmtDateKey = "2006-01-02"
+// IssuesDateColumns - slice of IssuesDateColumn
+type IssuesDateColumns []IssuesDateColumn
 
-type Issues []*Issue
-type Issue struct {
-	Owner            string
-	RepoName         string
-	Number           int
-	Type             string
-	Title            string
-	ColumnDates      []*BoardColumn
-	DateColumnMap    Columns
-	IsFeature        bool
-	TotalTimeBlocked time.Duration
-	ProjectID        int64
+// IssuesDateColumn - adds date to models.ProjectColumn for IssuesRunner
+type IssuesDateColumn struct {
+	*models.ProjectColumn
+	Date time.Time
 }
 
-type IssueLabel string
-
-const (
-	Blocked  IssueLabel = "BLOCKED"
-	Bug      IssueLabel = "BUG"
-	TechDebt IssueLabel = "TECH DEBT"
-	Feature  IssueLabel = "FEATURE"
-)
-
-func ToIssueLabel(s string) IssueLabel {
-	return IssueLabel(strings.ToUpper(s))
-}
-
-type IssueEvent string
-
-const (
-	Assigned       IssueEvent = "ASSIGNED"
-	Unassigned     IssueEvent = "UNASSIGNED"
-	Mentioned      IssueEvent = "MENTIONED"
-	Closed         IssueEvent = "CLOSED"
-	MovedColumns   IssueEvent = "MOVED_COLUMNS_IN_PROJECT"
-	Labeled        IssueEvent = "LABELED"
-	Unlabeled      IssueEvent = "UNLABELED"
-	AddedToProject IssueEvent = "ADDED_TO_PROJECT"
-)
-
-func ToIssueEvent(s string) IssueEvent {
-	return IssueEvent(strings.ToUpper(s))
-}
-
-type BoardColumns []*BoardColumn
-
-func (cd BoardColumns) ColumnNames() []string {
+//ColumnNames - returns the slice of column names
+func (cols IssuesDateColumns) ColumnNames() []string {
 	names := make([]string, 0)
-	for _, columnDate := range cd {
-		names = append(names, columnDate.Name)
+	for _, col := range cols {
+		names = append(names, col.Name)
 	}
 	return names
 }
 
-type BoardColumn struct {
-	Name string
-	ID   int64
-	Date time.Time
+// Issues - slice of metrics.Issue
+type Issues []Issue
+
+// Issue - used to calculate metrics for an issue
+type Issue struct {
+	*models.Issue
+	ProjectID        int64
+	StartColumnIndex int
+	EndColumnIndex   int
+
+	Type      string
+	IsFeature bool
+
+	// IsCompleted      bool // TODO: can this be determined but card entering column?
+	ColumnDates      IssuesDateColumns
+	TotalTimeBlocked time.Duration
+	BlockedTime      time.Duration
+	DevTime          time.Duration
 }
 
-func (i *Issue) CalcDays(startColumnIndex, endColumnIndex int) float64 {
-	return float64(i.ColumnDates[endColumnIndex].Date.Sub(i.ColumnDates[startColumnIndex].Date)) / float64(time.Hour) / 24
+func (i *Issue) CalcDays() float64 {
+	// logrus.Debugf("\t %s/%s/%d - calcuting: %s - %s", i.Owner, i.RepoName, i.Number, i.ColumnDates[i.EndColumnIndex].Date.String(), i.ColumnDates[i.StartColumnIndex].Date.String())
+	return float64(i.ColumnDates[i.EndColumnIndex].Date.Sub(i.ColumnDates[i.StartColumnIndex].Date)) / float64(time.Hour) / 24
 }
 
-func (i *Issue) CSVHeaders(beginColumnIdx, endColumnIdx int) []string {
+//CSVHeaders - returns list of colun headers
+func (i *Issue) CSVHeaders() []string {
 	var cols = []string{
 		"Card #",
 		"Team",
@@ -86,7 +64,7 @@ func (i *Issue) CSVHeaders(beginColumnIdx, endColumnIdx int) []string {
 		"Description",
 	}
 
-	for idx := beginColumnIdx; idx <= endColumnIdx; idx++ {
+	for idx := i.StartColumnIndex; idx <= i.EndColumnIndex; idx++ {
 		cols = append(cols, i.ColumnDates[idx].Name)
 	}
 
@@ -97,28 +75,29 @@ func (i *Issue) CSVHeaders(beginColumnIdx, endColumnIdx int) []string {
 		"Blocked Days")
 }
 
-func (i *Issue) CSV(beginColumnIdx, endColumnIdx int) []string {
+// Values - returns a row of csv values for a single issue
+func (i *Issue) Values() []string {
 	row := []string{
-		fmt.Sprint(i.Number),
-		i.RepoName,
-		i.Type,
-		i.Title,
+		fmt.Sprint(i.Number), // 	"Card #"
+		i.RepoName,           // 		"Repo"
+		i.Type,               // Type
+		i.Title,              // Description
 	}
-	for idx := beginColumnIdx; idx <= endColumnIdx; idx++ {
-		row = append(row, i.ColumnDates[idx].Date.Format("01/02/06"))
+	for colInx := i.StartColumnIndex; colInx <= i.EndColumnIndex; colInx++ {
+		row = append(row, i.ColumnDates[colInx].Date.Format("01/02/06"))
 	}
 
 	return append(row,
-		fmt.Sprintf("%.1f", i.CalcDays(beginColumnIdx, endColumnIdx)),
+		fmt.Sprintf("%.1f", i.CalcDays()),
 		strconv.FormatBool(i.IsFeature),
 		fmt.Sprintf("%t", math.Ceil(float64(i.TotalTimeBlocked/time.Hour/24)) > 0), // was blocked over 24 hours?
 		FmtDays(i.TotalTimeBlocked),                                                // time blocked over 24 hours
 	)
 }
 
-func (i *Issue) ProcessLabels(labels []*github.Label) {
+func (i *Issue) ProcessLabels(labels []string) {
 	for _, l := range labels {
-		labelName := ToIssueLabel(l.GetName())
+		labelName := ToIssueLabel(l)
 		switch labelName {
 		case Bug:
 			i.Type = "Bug"
@@ -128,133 +107,169 @@ func (i *Issue) ProcessLabels(labels []*github.Label) {
 			i.IsFeature = true
 		}
 	}
+	if i.Type == "" {
+		i.Type = "Enhancement"
+	}
 }
 
-func (i *Issue) ProcessIssueEvents(events []*github.IssueEvent, beginColumnIdx int) {
-	if len(events) == 0 {
+func Type(labels []string) string {
+	for _, l := range labels {
+		labelName := ToIssueLabel(l)
+		switch labelName {
+		case Bug:
+			return "Bug"
+		case TechDebt:
+			return "Tech Debt"
+		}
+	}
+	return ""
+}
+
+func HasFeatureLabel(labels []string) bool {
+	for _, l := range labels {
+		labelName := ToIssueLabel(l)
+		switch labelName {
+		case Feature:
+			return true
+		}
+	}
+	return false
+}
+
+// ProcessIssueEvents sets column dates based on its events
+func (i *Issue) ProcessIssueEvents() {
+	logrus.Debugf("Events: %s/%s/%d - %s", i.Owner, i.RepoName, i.Number, i.Title)
+	if len(i.Events) == 0 {
 		return
 	}
+	i.setColumnDates()
+	i.setEmptyColumnDates()
+}
+
+func (i *Issue) setColumnDates() {
 	var blockedAt time.Time
+	// var startColumn = i.ColumnDates[i.StartColumnIndex]
 	initTime := time.Time{}
 
-	for idx, event := range events {
-		eventType := ToIssueEvent(event.GetEvent())
-		switch eventType {
-		case AddedToProject:
-			i.ProjectID = event.GetProjectCard().GetProjectID()
-			logrus.Debugf("Event @ %s: added to repoName \"%d\"", event.GetCreatedAt().String(), event.GetProjectCard().GetProjectID())
+	for idx, event := range i.Events {
+		eventNum := idx
+		logPrefix := fmt.Sprintf("  [%d]@%s | %s", eventNum, event.CreatedAt.String(), event.Type)
+		switch event.Type {
+		case models.AddedToProject:
+			logrus.Debugf("%s: %d", logPrefix, event.ProjectID)
+			i.ProjectID = event.ProjectID
+			logrus.Debugf("\t * added to projectID: %d", event.ProjectID)
 			fallthrough // Must fallthrough to MovedColumns for handling of case where card is dropped into column, and has not moved; expecting GetColumnName to be set
-		case MovedColumns:
-			logrus.Debugf("Event[%d] @ %s: moved columns %s -> %s\n", idx, event.GetCreatedAt().String(), event.GetProjectCard().GetPreviousColumnName(), event.GetProjectCard().GetColumnName())
-			boardColumn, _, err := i.getColumn(event.GetProjectCard().GetColumnName())
+		case models.MovedColumns:
+			logrus.Debugf("%s - moved columns: %q -> %q\n", logPrefix, event.PreviousColumnName, event.ColumnName)
+
+			movedToColumn, err := i.getColumn(event.ColumnName)
 			if err != nil {
-				logrus.Debugf("Event: metric column not found: %s.   skip metric...\n", event.GetProjectCard().GetColumnName())
+				logrus.Warnf("error getting column: %s\n", err.Error())
 				continue
 			}
-			logrus.Debugf("Event: setting column \"%s\" date - %s\n", boardColumn.Name, event.GetCreatedAt())
-			boardColumn.Date = event.GetCreatedAt()
-		case Labeled:
-			cardStatus := ToIssueLabel(event.GetLabel().GetName())
+
+			if event.PreviousColumnName != "" {
+				movedFromColumn, err := i.getColumn(event.PreviousColumnName)
+				if err != nil {
+					logrus.Warnf("error getting previous column: %s\n", err.Error())
+					continue
+				}
+				if movedFromColumn.Index > movedToColumn.Index {
+					logrus.Debugf("\t * card moved back %d columns, leaving date: %s", movedFromColumn.Index-movedToColumn.Index, i.ColumnDates[movedToColumn.Index].Date.String())
+					continue
+				}
+			}
+
+			logrus.Debugf("%s - setting column %q date - %s\n", logPrefix, movedToColumn.Name, event.CreatedAt)
+			i.ColumnDates[movedToColumn.Index].Date = event.CreatedAt
+			logrus.Debugf("---- verifying i.DateColumns[%d].Date: %s", movedToColumn.Index, i.ColumnDates[movedToColumn.Index].Date.String())
+
+		case models.Labeled:
+			logrus.Debugf("%s: %q", logPrefix, event.Label)
+			cardStatus := ToIssueLabel(event.Label)
 			switch cardStatus {
 			case Blocked:
-
-				if len(i.ColumnDates) < beginColumnIdx+1 {
-					logrus.Warningf("issue: %#v\n", i)
-					logrus.Fatalf("i.BoardColumns does not contain item at index %d\n", beginColumnIdx)
+				logrus.Debugf("%s: %q", logPrefix, event.Label)
+				if len(i.ColumnDates) < i.StartColumnIndex+1 {
+					logrus.Warnf("issue: %#v\n", i)
+					logrus.Fatalf("i.IssuesDateColumns does not contain item at index %d\n", i.StartColumnIndex)
 				}
-				if i.ColumnDates[beginColumnIdx].Date != initTime {
-					blockedAt = event.GetCreatedAt()
-					logrus.Debugf("Event @ %s: blocked", event.GetCreatedAt().String())
+				if i.ColumnDates[i.StartColumnIndex].Date != initTime {
+					blockedAt = event.CreatedAt
+					logrus.Debug("\t * blocked")
 				} else {
-					logrus.Debugf("Event @ %s: blocked but not in develop yet", event.GetCreatedAt().String())
+					logrus.Debug("\t * blocked but not in develop yet")
 				}
-
 			default:
 			}
-		case Unlabeled:
-			issueStatus := ToIssueLabel(event.GetLabel().GetName())
+		case models.Unlabeled:
+			logrus.Debugf("%s: removed %q", logPrefix, event.Label)
+			issueStatus := ToIssueLabel(event.Label)
 			switch issueStatus {
 			case Blocked:
-				if blockedAt.After(i.ColumnDates[beginColumnIdx].Date) {
-					logrus.Debugf("Event @ %s: unblocked", event.GetCreatedAt().String())
-					i.TotalTimeBlocked += event.GetCreatedAt().Sub(blockedAt)
+				if blockedAt.After(i.ColumnDates[i.StartColumnIndex].Date) {
+					logrus.Debugf("\t * unblocked")
+					i.TotalTimeBlocked += event.CreatedAt.Sub(blockedAt)
 				} else {
-					logrus.Debugf("Event @ %s: unblocked, ignoring because card was blocked before in development", event.GetCreatedAt().String())
+					logrus.Debug("\t * unblocked, ignoring because card was blocked before in development")
 				}
 
 				blockedAt = time.Time{}
 			default:
 			}
-		case Assigned, Unassigned:
-			logrus.Debugf("Event @ %s: assigned/unassigned to \"%s\"", event.GetCreatedAt().String(), event.GetAssignee().GetLogin())
-		case Mentioned:
-			logrus.Debugf("Event @ %s: Mentioned %s, \"%s\"", event.GetCreatedAt().String(), event.GetProjectCard().GetNote(), event.GetActor().GetLogin())
-		case Closed:
-			logrus.Debugf("Event @ %s: Closed ", event.GetCreatedAt().String())
+		case models.Assigned:
+			logrus.Debugf("%s: %q", logPrefix, event.Assignee)
+		case models.Unassigned:
+			logrus.Debugf("%s: %q", logPrefix, event.Assignee)
+		case models.Mentioned:
+			logrus.Debugf("%s: %q - %q", logPrefix, event.LoginName, event.Note)
+		case models.Closed:
+			logrus.Debugf("%s", logPrefix)
 		default:
-			logrus.Debugf("Event @ %s: unrecognized event: %#v", event.GetCreatedAt().String(), eventType)
+			logrus.Debugf("%s: unrecognized event", logPrefix)
 		}
 	}
-
+}
+func (i *Issue) setEmptyColumnDates() {
 	// TODO: handle weekends?
 	// https://stackoverflow.com/questions/31327124/how-can-i-exclude-weekends-golang
 
-	// this section attempts to fix missing dates in columns
-	// by iterating backwards through the columns and
+	// this section attempts to fix missing dates in ColumnsMetric
+	// by iterating backwards through the ColumnsMetric and
 	// adjusting missing dates to previous column if not set
-	defaultTime := time.Time{}
 	for dateIdx := len(i.ColumnDates) - 1; dateIdx >= 0; dateIdx-- {
 		// if date was never set, set to next date we know something happened
-		if i.ColumnDates[dateIdx].Date == defaultTime {
+		logrus.Debugf("idx %d - column: %s - Date: %s", dateIdx, i.ColumnDates[dateIdx].Name, i.ColumnDates[dateIdx].Date.String())
+		if i.ColumnDates[dateIdx].Date.IsZero() {
+			logrus.Debugf("\t\tDate.IsZero()")
 			// if last
-			if dateIdx == len(i.ColumnDates)-1 {
-				i.ColumnDates[dateIdx].Date = events[len(events)-1].GetCreatedAt() // get date from last event
-			} else if dateIdx != 0 {
+			if dateIdx == i.EndColumnIndex {
+				i.ColumnDates[dateIdx].Date = i.Events[len(i.Events)-1].CreatedAt // get date from last event
+				logrus.Debugf("\t\tsetting to last event date: %s", i.Events[len(i.Events)-1].CreatedAt.String())
+			} else if dateIdx < i.EndColumnIndex && dateIdx > i.StartColumnIndex {
 				i.ColumnDates[dateIdx].Date = i.ColumnDates[dateIdx+1].Date // get date from date column just set
+				logrus.Debugf("\t\tsetting to next column date: %s", i.ColumnDates[dateIdx+1].Date.String())
+			} else if dateIdx == i.StartColumnIndex {
+				i.ColumnDates[dateIdx].Date = i.Events[0].CreatedAt // get date from date column just set
+				logrus.Debugf("\t\tsetting to first event date: %s", i.Events[0].CreatedAt.String())
 			}
 		}
 	}
-}
-
-func (issues Issues) CSVRowColumns(startColumnIndex, endColumnIndex int, boardID int64, headers bool, startDate, endDate time.Time) [][]string {
-	var rowColumns [][]string
-	if headers {
-		rowColumns = append(rowColumns, issues[0].CSVHeaders(startColumnIndex, endColumnIndex))
+	for _, date := range i.ColumnDates {
+		logrus.Debugf("\t\t\t%s - %s", date.Name, date.Date.String())
 	}
-	for _, issue := range issues {
-		if issue.ProjectID == boardID &&
-			issue.ColumnDates[endColumnIndex].Date.After(startDate) &&
-			issue.ColumnDates[endColumnIndex].Date.Before(endDate) {
+}
 
-			if issue.CalcDays(startColumnIndex, endColumnIndex) > 0 {
-				rowColumns = append(rowColumns, issue.CSV(startColumnIndex, endColumnIndex))
-			}
-		}
+func (i *Issue) getColumn(name string) (*IssuesDateColumn, error) {
+	if len(i.ColumnDates) == 0 {
+		return nil, errors.New("ColumnDates is empty")
 	}
-	return rowColumns
-}
-
-func FmtDays(d time.Duration) string {
-	d = d.Round(time.Minute)
-	days := int(math.Ceil(float64(d / time.Hour / 24)))
-	//h := d / time.Hour
-	//d -= h * time.Hour
-	//m := d / time.Minute
-	return fmt.Sprintf("%d", days)
-}
-
-func FmtDaysHours(d time.Duration) string {
-	d = d.Round(time.Minute)
-	duration := float64(d) / float64(time.Hour) / 24
-	return fmt.Sprintf("%.1f", duration)
-}
-
-func (i *Issue) getColumn(name string) (*BoardColumn, int, error) {
 	lookingFor := strings.ToUpper(name)
-	for index, col := range i.ColumnDates {
+	for _, col := range i.ColumnDates {
 		if strings.ToUpper(col.Name) == lookingFor {
-			return col, index, nil
+			return &col, nil
 		}
 	}
-	return nil, 0, errors.New("column not found: " + name)
+	return nil, errors.New("column not found: " + name)
 }
