@@ -17,11 +17,22 @@ import (
 var (
 	getProjectFromGithubButton widget.Clickable
 	selectProjectButton        widget.Clickable
-	availableProjectsEnum      widget.Enum
-	isLoadingProjects          bool
-	hasLoadedProjects          bool
-	availableProjects          models.Projects
+
+	isLoadingProjects bool
+	hasLoadedProjects bool
+
+	availableProjects     models.Projects
+	availableProjectsEnum widget.Enum
 )
+
+// Projects holds the list of available projects provides a Layout
+type Projects struct {
+	Model models.Project
+}
+
+// func (projects *Projects) Layout(gtx C) D {
+
+// }
 
 func projectOptions(th *material.Theme, input *widget.Enum, projects models.Projects) []layout.FlexChild {
 	options := make([]layout.FlexChild, 0, len(projects))

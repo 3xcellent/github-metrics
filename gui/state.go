@@ -5,6 +5,7 @@ import (
 
 	"github.com/3xcellent/github-metrics/client"
 	"github.com/3xcellent/github-metrics/config"
+	"github.com/3xcellent/github-metrics/models"
 	"github.com/sirupsen/logrus"
 )
 
@@ -22,9 +23,23 @@ type MetricsState struct {
 	RunCompleted bool
 	RunValues    [][]string
 
+	Result Result
+
 	SelectedProjectID   int64
 	SelectedProjectName string
 }
+
+type Result struct {
+	MetricName string
+	Owner      string
+	ProjectID  int64
+	Repos      Repositories
+}
+
+type Repository struct {
+	m models.Repository
+}
+type Repositories []Repository
 
 // NewState - returns new state object
 func NewState(ctx context.Context) *MetricsState {

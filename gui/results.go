@@ -11,6 +11,7 @@ import (
 
 // LayoutResults - results of the columns metric
 func LayoutResults(gtx C) D {
+
 	// set initial form values
 	if State.RunRequested && !State.RunStarted {
 		State.RunStarted = true
@@ -33,6 +34,7 @@ func LayoutResults(gtx C) D {
 			State.RunCompleted = true
 			State.RunStarted = false
 			State.RunRequested = false
+		
 			return nil
 		}
 		runner.After(doAfter)

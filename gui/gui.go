@@ -45,6 +45,8 @@ const (
 	ConnectionSettingsPage
 )
 
+var ProjectsView = new(Projects)
+
 // Page - an instance of an available page
 type Page struct {
 	layout func(layout.Context) layout.Dimensions
@@ -219,7 +221,6 @@ func Start(ctx context.Context, cfg *config.AppConfig, args []string) error {
 					page := appPages[nav.CurrentNavDestination().(int)]
 					bar.Title = page.Name
 					bar.SetActions(page.Actions, page.Overflow)
-
 				}
 				for _, event := range bar.Events(gtx) {
 					switch event := event.(type) {

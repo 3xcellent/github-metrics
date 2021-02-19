@@ -170,8 +170,8 @@ func (r *Runner) GetIssuesAndColumns(ctx context.Context) (models.Issues, models
 	return issues, projectColumns, nil
 }
 
-// Filename - returns formatted filename including the .csv extension
-func (r *IssuesRunner) Filename() string {
+// RunName - returns formatted filename including the .csv extension
+func (r *Runner) RunName() string {
 	return fmt.Sprintf("%s_%s_%d-%02d.csv",
 		strings.Replace(r.ProjectName, " ", "_", -1),
 		r.MetricName,
