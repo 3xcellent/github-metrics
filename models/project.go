@@ -1,8 +1,6 @@
 package models
 
 import (
-	"fmt"
-
 	"github.com/3xcellent/github-metrics/config"
 )
 
@@ -28,13 +26,3 @@ func (p *Project) RunConfig() config.RunConfig {
 
 // Projects - group pf Projects
 type Projects []Project
-
-// GetProject - returns project found by id or error
-func (p Projects) GetProject(id int64) (Project, error) {
-	for _, proj := range p {
-		if proj.ID == id {
-			return proj, nil
-		}
-	}
-	return Project{}, fmt.Errorf("no project found with id %d", id)
-}

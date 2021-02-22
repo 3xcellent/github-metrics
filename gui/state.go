@@ -5,7 +5,6 @@ import (
 
 	"github.com/3xcellent/github-metrics/client"
 	"github.com/3xcellent/github-metrics/config"
-	"github.com/3xcellent/github-metrics/models"
 	"github.com/sirupsen/logrus"
 )
 
@@ -35,11 +34,6 @@ type Result struct {
 	ProjectID  int64
 	Repos      Repositories
 }
-
-type Repository struct {
-	m models.Repository
-}
-type Repositories []Repository
 
 // NewState - returns new state object
 func NewState(ctx context.Context) *MetricsState {

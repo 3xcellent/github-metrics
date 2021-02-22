@@ -10,7 +10,6 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/3xcellent/github-metrics/client"
-	"github.com/3xcellent/github-metrics/models"
 	"github.com/sirupsen/logrus"
 )
 
@@ -21,22 +20,16 @@ var (
 	isLoadingProjects bool
 	hasLoadedProjects bool
 
-	availableProjects     models.Projects
+	availableProjects     Projects
 	availableProjectsEnum widget.Enum
 )
 
 // Projects holds the list of available projects provides a Layout
-type Projects struct {
-	Model models.Project
-}
+type Projects []Project
 
-// func (projects *Projects) Layout(gtx C) D {
-
-// }
-
-func projectOptions(th *material.Theme, input *widget.Enum, projects models.Projects) []layout.FlexChild {
+// Options returns the list of available projects as []FlexChild
+func (projects Projects) Options(th *material.Theme, input *widget.Enum) []layout.FlexChild {
 	options := make([]layout.FlexChild, 0, len(projects))
-
 	for _, p := range projects {
 		project := p
 		options = append(options,
@@ -44,13 +37,41 @@ func projectOptions(th *material.Theme, input *widget.Enum, projects models.Proj
 				return material.RadioButton(
 					th,
 					input,
-					fmt.Sprintf("%d", project.ID),
-					project.Name,
+					fmt.Sprintf("%d", project.Model.ID),
+					project.Model.Name,
 				).Layout(gtx)
 			}))
 	}
 	return options
 }
+
+// GetProject - returns project found by id or error
+func (projects Projects) GetProject(id int64) (Project, error) {
+	for _, proj := range projects {
+		if proj.Model.ID == id {
+			return proj, nil
+		}
+	}
+	return Project{}, fmt.Errorf("no project found with id %d", id)
+}
+
+// func projectOptions(th *material.Theme, input *widget.Enum, projects models.Projects) []layout.FlexChild {
+// 	options := make([]layout.FlexChild, 0, len(projects))
+
+// 	for _, p := range projects {
+// 		project := p
+// 		options = append(options,
+// 			layout.Rigid(func(gtx C) D {
+// 				return material.RadioButton(
+// 					th,
+// 					input,
+// 					fmt.Sprintf("%d", project.ID),
+// 					project.Name,
+// 				).Layout(gtx)
+// 			}))
+// 	}
+// 	return options
+// }
 
 // LayoutProjectsPage - layout of available projects
 func LayoutProjectsPage(gtx C) D {
@@ -67,7 +88,11 @@ func LayoutProjectsPage(gtx C) D {
 				if err != nil {
 					panic(err)
 				}
-				availableProjects = ghProjects
+
+				availableProjects = make(Projects, 0, len(ghProjects))
+				for _, ghProject := range ghProjects {
+					availableProjects = append(availableProjects, Project{Model: ghProject})
+				}
 				hasLoadedProjects = true
 				isLoadingProjects = false
 			}(State.Client)
@@ -110,57 +135,48 @@ func LayoutProjectsPage(gtx C) D {
 		}
 		State.SelectedProjectID = int64(id)
 
+		// nav.SetNavDestination(RunOptionsPage)
+		// op.InvalidateOp{}.Add(gtx.Ops)
+
+		logrus.Debugf("SelectedProjectID : %d", State.SelectedProjectID)
+		logrus.Debugf("SelectedProjectName : %s", State.SelectedProjectName)
+	}
+	// projectsEnum.Value = ""
+
+	if State.SelectedProjectID != 0 {
 		project, err := availableProjects.GetProject(State.SelectedProjectID)
 		if err != nil {
 			panic(err)
 		}
-		State.RunConfig.ProjectID = State.SelectedProjectID
-		State.SelectedProjectName = project.Name
-		nav.SetNavDestination(RunOptionsPage)
-		op.InvalidateOp{}.Add(gtx.Ops)
-	}
 
-	logrus.Debugf("SelectedProjectID : %d", State.SelectedProjectID)
-	logrus.Debugf("SelectedProjectName : %s", State.SelectedProjectName)
+		State.RunConfig.ProjectID = State.SelectedProjectID
+		State.SelectedProjectName = project.Model.Name
+
+		return project.Layout(gtx)
+	}
 	return layout.Flex{
 		Alignment: layout.Start,
-		Axis:      layout.Horizontal,
+		Axis:      layout.Vertical,
 	}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{
+				Axis: layout.Horizontal,
+			}.Layout(
+				gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return inset.Layout(gtx, material.Body1(th, `Project Options:`).Layout)
+				}),
+				layout.Rigid(func(gtx C) D {
+					return material.Button(th, &getProjectFromGithubButton, "Refresh Available Projects From Github").Layout(gtx)
+				}),
+			)
+		}),
+		layout.Rigid(func(gtx C) D {
 			return layout.Flex{
 				Axis: layout.Vertical,
 			}.Layout(
 				gtx,
-				layout.Rigid(func(gtx C) D {
-					return material.Button(th, &getProjectFromGithubButton, "Get Projects From Github").Layout(gtx)
-				}),
-			)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return inset.Layout(gtx, material.Body1(th, `Project Options:`).Layout)
-		}),
-		layout.Rigid(func(gtx C) D {
-			projectsEnum.Value = ""
-			return inset.Layout(
-				gtx,
-				func(gtx C) D {
-					return layout.Flex{
-						Axis: layout.Vertical,
-					}.Layout(
-						gtx,
-						layout.Rigid(func(gtx C) D {
-							return material.Body2(th, "Project:").Layout(gtx)
-						}),
-						layout.Rigid(func(gtx C) D {
-							return layout.Flex{
-								Axis: layout.Vertical,
-							}.Layout(
-								gtx,
-								projectOptions(th, &projectsEnum, availableProjects)...,
-							)
-						}),
-					)
-				},
+				availableProjects.Options(th, &projectsEnum)...,
 			)
 		}),
 	)

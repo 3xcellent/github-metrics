@@ -17,7 +17,6 @@ import (
 	"gioui.org/widget/material"
 	"git.sr.ht/~whereswaldon/materials"
 	"github.com/3xcellent/github-metrics/config"
-	"github.com/3xcellent/github-metrics/models"
 	"github.com/sirupsen/logrus"
 )
 
@@ -107,11 +106,13 @@ var (
 	inputAlignment = layout.Start
 
 	projectsEnum      widget.Enum
+	reposEnum         widget.Enum
 	yearsEnum         widget.Enum
 	monthsEnum        widget.Enum
 	commandsEnum      widget.Enum
 	runButton         widget.Clickable
 	selectedBoardName string
+	selectedRepoName  string
 	selectedYear      int
 	selectedMonth     int
 	outputText        string
@@ -178,7 +179,7 @@ func Start(ctx context.Context, cfg *config.AppConfig, args []string) error {
 		}
 		hasLoadedProjects = true
 		project.Owner = runConfig.Owner
-		availableProjects = models.Projects{project}
+		availableProjects = Projects{{Model: project}}
 		State.SelectedProjectName = project.Name
 		State.RunConfig = runConfig
 	}

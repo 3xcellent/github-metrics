@@ -110,34 +110,7 @@ func layoutRunOptions(gtx C) D {
 						},
 					)
 				}),
-				layout.Rigid(func(gtx C) D {
-					if commandsEnum.Changed() {
-						State.RunConfig.MetricName = commandsEnum.Value
-						logrus.Debugf("Metric selected: %s", State.RunConfig.MetricName)
-						op.InvalidateOp{}.Add(gtx.Ops)
-					}
-					return inset.Layout(
-						gtx,
-						func(gtx C) D {
-							return layout.Flex{
-								Axis: layout.Vertical,
-							}.Layout(
-								gtx,
-								layout.Rigid(func(gtx C) D {
-									return material.Body2(th, "Metric:").Layout(gtx)
-								}),
-								layout.Rigid(func(gtx C) D {
-									return layout.Flex{
-										Axis: layout.Vertical,
-									}.Layout(
-										gtx,
-										metricOptions(th, &commandsEnum)...,
-									)
-								}),
-							)
-						},
-					)
-				}),
+				metricsOptions(),
 			)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -154,7 +127,38 @@ func layoutRunOptions(gtx C) D {
 	)
 }
 
-func metricOptions(th *material.Theme, input *widget.Enum) []layout.FlexChild {
+func metricsOptions() layout.FlexChild {
+	return layout.Rigid(func(gtx C) D {
+		if commandsEnum.Changed() {
+			State.RunConfig.MetricName = commandsEnum.Value
+			logrus.Debugf("Metric selected: %s", State.RunConfig.MetricName)
+			op.InvalidateOp{}.Add(gtx.Ops)
+		}
+		return inset.Layout(
+			gtx,
+			func(gtx C) D {
+				return layout.Flex{
+					Axis: layout.Vertical,
+				}.Layout(
+					gtx,
+					layout.Rigid(func(gtx C) D {
+						return material.Body2(th, "Metric:").Layout(gtx)
+					}),
+					layout.Rigid(func(gtx C) D {
+						return layout.Flex{
+							Axis: layout.Vertical,
+						}.Layout(
+							gtx,
+							metricOptions(&commandsEnum)...,
+						)
+					}),
+				)
+			},
+		)
+	})
+}
+
+func metricOptions(input *widget.Enum) []layout.FlexChild {
 	options := make([]layout.FlexChild, 0, len(metrics.AvailableMetrics))
 
 	for _, metric := range metrics.AvailableMetrics {

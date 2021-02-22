@@ -19,8 +19,8 @@ func LayoutResults(gtx C) D {
 		if err != nil {
 			panic(err)
 		}
-		State.RunConfig.ProjectID = selectedProject.ID
-		State.RunConfig.Owner = selectedProject.Owner
+		State.RunConfig.ProjectID = selectedProject.Model.ID
+		State.RunConfig.Owner = selectedProject.Model.Owner
 		State.RunConfig.StartDate = time.Date(selectedYear, time.Month(selectedMonth), 1, 0, 0, 0, 0, time.Now().Location())
 		State.RunConfig.EndDate = State.RunConfig.StartDate.AddDate(0, 1, 0)
 
@@ -34,7 +34,7 @@ func LayoutResults(gtx C) D {
 			State.RunCompleted = true
 			State.RunStarted = false
 			State.RunRequested = false
-		
+
 			return nil
 		}
 		runner.After(doAfter)
