@@ -15,10 +15,15 @@ type RunConfig struct {
 	IssueNumber int
 	CreateFile  bool
 	NoHeaders   bool
-	StartColumn string
-	StartDate   time.Time
-	EndColumn   string
-	EndDate     time.Time
+
+	StartColumn      string
+	StartDate        time.Time
+	StartColumnIndex int
+	EndDate          time.Time
+	EndColumn        string
+	EndColumnIndex   int
+	EndColumnID      int64
+	ColumnNames      []string
 }
 
 // RunConfigs - provides access to getting a RunCofnig by ID or Name

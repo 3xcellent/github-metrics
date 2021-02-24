@@ -14,18 +14,17 @@ import (
 )
 
 var (
-	getProjectFromGithubButton widget.Clickable
-	selectProjectButton        widget.Clickable
+	getProjectsFromGithubButton widget.Clickable
 
 	isLoadingProjects bool
 	hasLoadedProjects bool
 
-	availableProjects     Projects
-	availableProjectsEnum widget.Enum
+	availableProjects Projects
+	projectsEnum      widget.Enum
 )
 
 // Projects holds the list of available projects provides a Layout
-type Projects []Project
+type Projects []*Project
 
 // Options returns the list of available projects as []FlexChild
 func (projects Projects) Options(th *material.Theme, input *widget.Enum) []layout.FlexChild {
@@ -46,36 +45,18 @@ func (projects Projects) Options(th *material.Theme, input *widget.Enum) []layou
 }
 
 // GetProject - returns project found by id or error
-func (projects Projects) GetProject(id int64) (Project, error) {
+func (projects Projects) GetProject(id int64) (*Project, error) {
 	for _, proj := range projects {
 		if proj.Model.ID == id {
 			return proj, nil
 		}
 	}
-	return Project{}, fmt.Errorf("no project found with id %d", id)
+	return &Project{}, fmt.Errorf("no project found with id %d", id)
 }
-
-// func projectOptions(th *material.Theme, input *widget.Enum, projects models.Projects) []layout.FlexChild {
-// 	options := make([]layout.FlexChild, 0, len(projects))
-
-// 	for _, p := range projects {
-// 		project := p
-// 		options = append(options,
-// 			layout.Rigid(func(gtx C) D {
-// 				return material.RadioButton(
-// 					th,
-// 					input,
-// 					fmt.Sprintf("%d", project.ID),
-// 					project.Name,
-// 				).Layout(gtx)
-// 			}))
-// 	}
-// 	return options
-// }
 
 // LayoutProjectsPage - layout of available projects
 func LayoutProjectsPage(gtx C) D {
-	if getProjectFromGithubButton.Clicked() && !isLoadingProjects {
+	if getProjectsFromGithubButton.Clicked() && !isLoadingProjects {
 		hasLoadedProjects = false
 	}
 
@@ -83,7 +64,6 @@ func LayoutProjectsPage(gtx C) D {
 		if !isLoadingProjects {
 			isLoadingProjects = true
 			go func(client *client.MetricsClient) {
-				logrus.Info("getting projects...")
 				ghProjects, err := client.GetProjects(context.Background(), State.APIConfig.Owner)
 				if err != nil {
 					panic(err)
@@ -91,7 +71,7 @@ func LayoutProjectsPage(gtx C) D {
 
 				availableProjects = make(Projects, 0, len(ghProjects))
 				for _, ghProject := range ghProjects {
-					availableProjects = append(availableProjects, Project{Model: ghProject})
+					availableProjects = append(availableProjects, &Project{Model: ghProject})
 				}
 				hasLoadedProjects = true
 				isLoadingProjects = false
@@ -103,27 +83,8 @@ func LayoutProjectsPage(gtx C) D {
 			Alignment: layout.Start,
 			Axis:      layout.Horizontal,
 		}.Layout(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return inset.Layout(gtx, material.Body1(th, `Project Options:`).Layout)
-			}),
 			layout.Rigid(func(gtx C) D {
-				if projectsEnum.Changed() {
-					selectedBoardName = projectsEnum.Value
-					op.InvalidateOp{}.Add(gtx.Ops)
-				}
-				return inset.Layout(
-					gtx,
-					func(gtx C) D {
-						return layout.Flex{
-							Axis: layout.Vertical,
-						}.Layout(
-							gtx,
-							layout.Rigid(func(gtx C) D {
-								return material.Body2(th, "Loading Projects...").Layout(gtx)
-							}),
-						)
-					},
-				)
+				return material.Body2(th, "Loading Projects...").Layout(gtx)
 			}),
 		)
 	}
@@ -140,15 +101,14 @@ func LayoutProjectsPage(gtx C) D {
 
 		logrus.Debugf("SelectedProjectID : %d", State.SelectedProjectID)
 		logrus.Debugf("SelectedProjectName : %s", State.SelectedProjectName)
+		projectsEnum.Value = ""
 	}
-	// projectsEnum.Value = ""
 
 	if State.SelectedProjectID != 0 {
 		project, err := availableProjects.GetProject(State.SelectedProjectID)
 		if err != nil {
 			panic(err)
 		}
-
 		State.RunConfig.ProjectID = State.SelectedProjectID
 		State.SelectedProjectName = project.Model.Name
 
@@ -167,7 +127,7 @@ func LayoutProjectsPage(gtx C) D {
 					return inset.Layout(gtx, material.Body1(th, `Project Options:`).Layout)
 				}),
 				layout.Rigid(func(gtx C) D {
-					return material.Button(th, &getProjectFromGithubButton, "Refresh Available Projects From Github").Layout(gtx)
+					return material.Button(th, &getProjectsFromGithubButton, "Get from Server").Layout(gtx)
 				}),
 			)
 		}),

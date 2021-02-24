@@ -105,8 +105,6 @@ var (
 	nonModalDrawer widget.Bool
 	inputAlignment = layout.Start
 
-	projectsEnum      widget.Enum
-	reposEnum         widget.Enum
 	yearsEnum         widget.Enum
 	monthsEnum        widget.Enum
 	commandsEnum      widget.Enum
@@ -172,16 +170,18 @@ func Start(ctx context.Context, cfg *config.AppConfig, args []string) error {
 		if err != nil {
 			return err
 		}
-		State.SelectedProjectID = runConfig.ProjectID
-		project, err := State.Client.GetProject(ctx, State.SelectedProjectID)
+		project, err := State.Client.GetProject(ctx, runConfig.ProjectID)
 		if err != nil {
 			return err
 		}
-		hasLoadedProjects = true
 		project.Owner = runConfig.Owner
 		availableProjects = Projects{{Model: project}}
+
+		State.SelectedProjectID = runConfig.ProjectID
 		State.SelectedProjectName = project.Name
 		State.RunConfig = runConfig
+
+		hasLoadedProjects = true
 	}
 
 	// initialize form fields
