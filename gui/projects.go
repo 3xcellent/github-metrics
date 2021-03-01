@@ -15,12 +15,20 @@ import (
 
 var (
 	getProjectsFromGithubButton widget.Clickable
+	getReposFromGithubButton    widget.Clickable
+	getIssuesFromGithubButton   widget.Clickable
+
+	gotoProjectsButton widget.Clickable
+	gotoProjectButton  widget.Clickable
+	gotoRepoButton     widget.Clickable
 
 	isLoadingProjects bool
 	hasLoadedProjects bool
 
 	availableProjects Projects
 	projectsEnum      widget.Enum
+	reposEnum         widget.Enum
+	issuesEnum        widget.Enum
 )
 
 // Projects holds the list of available projects provides a Layout
@@ -56,6 +64,10 @@ func (projects Projects) GetProject(id int64) (*Project, error) {
 
 // LayoutProjectsPage - layout of available projects
 func LayoutProjectsPage(gtx C) D {
+	if gotoProjectsButton.Clicked() {
+		State.SelectedProjectID = 0
+	}
+
 	if getProjectsFromGithubButton.Clicked() && !isLoadingProjects {
 		hasLoadedProjects = false
 	}

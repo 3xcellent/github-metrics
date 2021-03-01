@@ -14,9 +14,9 @@ Run without arguments for help
    ```yaml
    ---
    API:
-   Owner: 3xcellent
+     Owner: 3xcellent
    RunConfigs:
-   - name: github-metrics
+     - name: MyProjectRunConfig
        owner: 3xcellent
        projectID: 10966824
        startColumn: In progress
@@ -24,11 +24,11 @@ Run without arguments for help
    GroupName: Github
    Owner: 3xcellent
    LoginNames:
-   - 3xcellent
+     - 3xcellent
    ```
 1. Then run:
    ```bash
-   github-metrics issues MyBoard \
+   go run github.com/3xcellent/github-metrics issues MyProjectRunConfig \
    --token $MY_GITHUB_ACCESS_TOKEN \
    --year 2020 \
    --month 1 \

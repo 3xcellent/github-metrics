@@ -5,16 +5,10 @@ import (
 
 	"gioui.org/layout"
 	"gioui.org/op"
-	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/3xcellent/github-metrics/client"
 	"github.com/3xcellent/github-metrics/models"
 	"github.com/sirupsen/logrus"
-)
-
-var (
-	getReposFromGithubButton widget.Clickable
-	reposEnum                widget.Enum
 )
 
 // Project provides a layout for a models.Project
@@ -29,6 +23,10 @@ type Project struct {
 
 // Layout - layout of Project Details and Repositories
 func (p *Project) Layout(gtx C) D {
+	if gotoProjectButton.Clicked() {
+		p.selectedRepoName = ""
+	}
+
 	if getReposFromGithubButton.Clicked() && !isLoadingProjects {
 		p.hasLoadedRepos = false
 		p.selectedRepoName = ""
@@ -103,11 +101,14 @@ func (p *Project) Layout(gtx C) D {
 				Axis: layout.Horizontal,
 			}.Layout(
 				gtx,
+				layout.Rigid(func(gtx C) D {
+					return material.Button(th, &gotoProjectsButton, "Get from Server").Layout(gtx)
+				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return inset.Layout(gtx, material.Body1(th, `Project Options:`).Layout)
 				}),
 				layout.Rigid(func(gtx C) D {
-					return material.Button(th, &getProjectsFromGithubButton, "Get from Server").Layout(gtx)
+					return material.Button(th, &getReposFromGithubButton, "Get from Server").Layout(gtx)
 				}),
 			)
 		}),

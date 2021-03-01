@@ -13,10 +13,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var (
-	getIssuesFromGithubButton widget.Clickable
-	issuesEnum                widget.Enum
-)
 
 type Repository struct {
 	Model models.Repository
